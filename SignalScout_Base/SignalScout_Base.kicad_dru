@@ -1,0 +1,38 @@
+(version 1)
+# Signal Scout rev C.3 custom rules. PCBWay standard process, no surcharge:
+# 0.127 mm (5 mil) track/space minimum, 0.3 mm drill / 0.6 mm via, 0.15 mm annular ring.
+
+(rule "RF line to its own ground (CPWG gap)"
+  (constraint clearance (min 0.2mm))
+  (condition "A.NetClass == 'RF_50R' && B.NetName == 'GND'"))
+
+(rule "RF pins on fine-pitch parts (pad to pad)"
+  (constraint clearance (min 0.15mm))
+  (condition "A.NetClass == 'RF_50R' && A.Type == 'Pad' && B.Type == 'Pad'"))
+
+(rule "USB 2.0 pair, about 90 ohm differential"
+  (constraint diff_pair_gap (min 0.18mm) (opt 0.2mm) (max 0.25mm))
+  (constraint diff_pair_uncoupled (max 3mm))
+  (constraint skew (max 0.5mm))
+  (condition "A.NetClass == 'USB_90R'"))
+
+(rule "Power nets: no thin vias"
+  (constraint via_diameter (min 0.8mm))
+  (constraint hole_size (min 0.4mm))
+  (condition "A.Type == 'Via' && (A.NetClass == 'PWR' || A.NetClass == 'LX_NODE')"))
+
+(rule "Copper to board edge (default)"
+  (constraint edge_clearance (min 0.3mm))
+  (condition "A.Type != 'Zone'"))
+
+(rule "Edge-mounted connectors and side keys may reach the board edge"
+  (constraint edge_clearance (min 0mm))
+  (condition "A.memberOfFootprint('J2') || B.memberOfFootprint('J2') || A.memberOfFootprint('J3') || B.memberOfFootprint('J3') || A.memberOfFootprint('J5') || B.memberOfFootprint('J5') || A.memberOfFootprint('SW7') || B.memberOfFootprint('SW7') || A.memberOfFootprint('SW8') || B.memberOfFootprint('SW8') || A.memberOfFootprint('SW9') || B.memberOfFootprint('SW9') || A.memberOfFootprint('J4') || B.memberOfFootprint('J4')"))
+
+(rule "RF_INLO is only an AC-ground return for the AD8317: normal clearance"
+  (constraint clearance (min 0.127mm))
+  (condition "A.NetName == 'RF_INLO' || B.NetName == 'RF_INLO'"))
+
+(rule "RF fan-out on fine-pitch pads (RF track to foreign pad)"
+  (constraint clearance (min 0.15mm))
+  (condition "A.NetClass == 'RF_50R' && B.Type == 'Pad' && B.NetName != 'GND' && B.NetClass != 'RF_50R'"))

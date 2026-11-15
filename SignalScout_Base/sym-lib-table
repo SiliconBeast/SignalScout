@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SignalScout")(type "KiCad")(uri "${KIPRJMOD}/SignalScout.kicad_sym")(options "")(descr "Signal Scout custom symbols"))
+)
