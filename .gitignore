@@ -1,0 +1,7 @@
+firmware/.pio/
+firmware/build/
+build/
+__pycache__/
+*.pyc
+docs/screenshots/sheet_*.png
+.vscode/
