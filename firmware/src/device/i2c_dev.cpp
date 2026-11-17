@@ -23,17 +23,22 @@ bool present(uint8_t a) { Lock l; Wire.beginTransmission(a); return Wire.endTran
 // Registers: 0x00/01 input, 0x02/03 output, 0x04/05 config (1 = input), 0x06/07 int enable (0 = on),
 // 0x10 ID (0x23), 0x11 GCR, 0x12/13 mode (0 = LED, 1 = GPIO), 0x2C..0x2F LED current for P1_4..P1_7.
 bool Expander::begin() {
+  // The AW9523B powers up with every pin an output driven low (address 0x58 straps AD1/AD0 low).
+  // That turns the LED full on and drives P0 low against the key pull-ups, so this runs first
+  // in hal_begin(). Rev C7 adds series resistors to the LED (docs/HARDWARE_REVIEW.md, item 1).
   uint8_t id = 0;
   ok_ = rd(ADDR_AW9523, 0x10, &id, 1) && id == 0x23;
   if (!ok_) return false;
   out1_ = (uint8_t)((1u << (EXP_DISP_PWR_EN - 8)) | (1u << (EXP_GNSS_RST - 8))); // display rail on, GNSS out of reset, sled wake low
-  wr(ADDR_AW9523, 0x03, out1_);
+  wr(ADDR_AW9523, 0x13, 0x1F);  // P1_5..P1_7 in LED mode first: stops the power-on LED current
   wr(ADDR_AW9523, 0x11, 0x13);  // port 0 push-pull, LED current range = Imax / 4 (about 9 mA)
+  wr(ADDR_AW9523, 0x03, out1_);
   wr(ADDR_AW9523, 0x12, 0xFF);  // port 0: all GPIO
-  wr(ADDR_AW9523, 0x13, 0x1F);  // P1_5..P1_7 in LED mode
   wr(ADDR_AW9523, 0x04, 0xFF);  // port 0: all inputs (keys, spare)
   wr(ADDR_AW9523, 0x05, (uint8_t)((1u << (EXP_KEY_LOCK - 8)) | (1u << (EXP_CHG_N - 8)))); // P1: lock + CHG_N in, rest out
-  wr(ADDR_AW9523, 0x06, 0x40);  // interrupt on every key (not the spare pin)
+  // Interrupt on every key and on SPARE_IO: from rev C7 it carries charger PGOOD and the IMU
+  // free-fall interrupt (wired-OR, active low), so plugging in or a fall wakes the base.
+  wr(ADDR_AW9523, 0x06, 0x00);
   wr(ADDR_AW9523, 0x07, (uint8_t)~((1u << (EXP_KEY_LOCK - 8)) | (1u << (EXP_CHG_N - 8))));
   led(0, 0, 0);
   inputs();
@@ -121,9 +126,16 @@ bool Bme280::read(float& t, float& rh, float& hpa) {
 // ---- LSM6DSO -------------------------------------------------------------------
 bool Imu::begin() {
   uint8_t id = 0; ok_ = rd(ADDR_LSM6DSO, 0x0F, &id, 1) && (id == 0x6C || id == 0x6B || id == 0x6A);
-  if (ok_) wr(ADDR_LSM6DSO, 0x10, 0x20); // accelerometer 26 Hz, +/- 2 g
-  return ok_;
+  if (!ok_) return false;
+  wr(ADDR_LSM6DSO, 0x10, 0x20); // accelerometer 26 Hz, +/- 2 g
+  // INT1 open-drain, active low: it shares SPARE_IO with the charger's PGOOD from rev C7.
+  wr(ADDR_LSM6DSO, 0x12, 0x74); // CTRL3_C: BDU, H_LACTIVE, PP_OD, IF_INC
+  wr(ADDR_LSM6DSO, 0x5D, 0x33); // FREE_FALL: 312 mg for 6 samples (~230 ms at 26 Hz)
+  wr(ADDR_LSM6DSO, 0x58, 0x80); // TAP_CFG2: embedded-function interrupts on
+  wr(ADDR_LSM6DSO, 0x5E, 0x10); // MD1_CFG: free fall -> INT1
+  return true;
 }
+bool Imu::free_fall() { uint8_t s = 0; return ok_ && rd(ADDR_LSM6DSO, 0x1B, &s, 1) && (s & 0x20); } // WAKE_UP_SRC.FF_IA
 bool Imu::read(float& ax, float& ay, float& az) {
   uint8_t d[6];
   if (!ok_ || !rd(ADDR_LSM6DSO, 0x28, d, 6)) return false;
