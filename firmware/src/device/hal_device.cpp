@@ -47,10 +47,15 @@ struct Gauge : IFuelGauge {
     v = battery::vcell_volts(a); soc = battery::soc_percent(b); rate = battery::crate_pct_per_hr(c); return true;
   }
 };
-// The board has no VBUS-sense line: "USB present" is inferred from the charger status output.
+// Rev C7: charger PGOOD (low = valid input) and the IMU free-fall interrupt share SPARE_IO.
+// On C6b the line just reads high through R30, so this falls back to "charging".
 struct Charger : ICharger {
   bool charging() override { return expander.ok() && !(expander.inputs() & (1u << EXP_CHG_N)); }
-  bool usb_present() override { return charging(); }
+  bool usb_present() override {
+    if (charging()) return true;
+    bool spare_low = expander.ok() && !(expander.inputs() & (1u << EXP_SPARE_IO));
+    return spare_low && !imu_ic.free_fall();
+  }
 };
 struct Haptics : IHaptics { void play(uint8_t e) override { haptic_ic.play(e); } };
 struct Siren : ISiren {

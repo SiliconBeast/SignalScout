@@ -35,5 +35,5 @@ class Bme280 {
  private:
   bool ok_ = false; uint16_t T1, P1; int16_t T2, T3, P2, P3, P4, P5, P6, P7, P8, P9, H2, H4, H5; uint8_t H1, H3; int8_t H6; int32_t tfine_ = 0;
 };
-class Imu { public: bool begin(); bool read(float& ax, float& ay, float& az); private: bool ok_ = false; };
+class Imu { public: bool begin(); bool read(float& ax, float& ay, float& az); bool free_fall(); private: bool ok_ = false; };
 }

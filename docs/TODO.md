@@ -37,15 +37,15 @@ Nothing in this firmware has run on the boards yet. The host tests cover the log
 
 ## Hardware observations from reading the netlist
 
-These came up while deriving the pin map. None blocks bring-up, but each is worth a look before the next board revision.
+These came up while deriving the pin map. Verdicts and the rev C7 rework are in [HARDWARE_REVIEW.md](HARDWARE_REVIEW.md).
 
 | # | Observation | Effect |
 |---|---|---|
 | H1 | The sled UART is on UART0 (IO43/IO44). The ESP32-S3 boot ROM prints on IO43 at every reset. | The sled receives a burst of noise at base boot. The protocol parser skips it. |
-| H2 | `SD_CS` is on IO0, shared with the BOOT button. | Pressing BOOT while running selects the SD card mid-transfer. Do not press BOOT during normal use. |
-| H3 | The RGB LED cathodes go straight to the AW9523B with no series resistors. | Safe once the firmware selects current-sink mode. Before that (blank board, bootloader), the pins' reset state decides. If the LED is on hard at power-up, add resistors. |
-| H4 | No VBUS-sense or power-good signal reaches the MCU; only `CHG_N`. | "USB plugged in, battery full" looks the same as "unplugged". |
+| H2 | `SD_CS` is on IO0, shared with the BOOT button. | OK: SW10 is inside the case and USB flashing doesn't need it. |
+| H3 | The RGB LED cathodes go straight to the AW9523B with no series resistors. | The AW9523B powers up with all outputs low, so the LED runs unlimited until the firmware configures it. **Rev C7: R50 to R52.** |
+| H4 | No VBUS-sense or power-good signal reaches the MCU; only `CHG_N`. | **Rev C7: BQ24074 PGOOD to `SPARE_IO`.** |
 | H5 | The MAX-M10S supply and backup pins are tied to +3V3 with no switch. | Deep-sleep current depends on the receiver accepting the software backup command (F4). |
-| H6 | The LSM6DSO interrupt pins are not connected. | No wake-on-motion or tap detection. |
+| H6 | The LSM6DSO interrupt pins are not connected. | **Rev C7: INT1 to `SPARE_IO` through R53** (wake on a fall). |
 | H7 | `HAPTIC_EN` (IO45) and `SIREN_EN` (IO46) are strapping pins. | Fine as long as R40/R41 keep them low at reset, which the netlist shows. |
 | H8 | The sled's charger input comes from the base's VBUS through the pogo pins. | The sled battery only charges while docked to a base that is on USB. |

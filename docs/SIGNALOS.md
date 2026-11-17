@@ -111,7 +111,7 @@ The device is designed so that most of its value can grow after it ships:
 
 ## Assets
 
-- **Icons.** Drawn for this product in `tools/gen_icons.py` (one vector description per glyph). It outputs colour (Adventure) and phosphor (Hackerspace) PNG tiles in `assets/icons/`, plus A8 alpha masks the firmware recolours at runtime. Nothing is taken from another product; the visual direction (black AMOLED, rounded tiles, playful but precise) is inspired by Kode Dot, but no Kode assets or code are used.
+- **Icons.** Drawn for this product in `tools/gen_icons.py` (one vector description per glyph). It outputs colour (Adventure) and phosphor (Hackerspace) PNG tiles in `assets/icons/`, plus A8 alpha masks the firmware recolours at runtime. Nothing is taken from another product; the visual direction (black AMOLED, rounded tiles, playful but precise) is our own.
 - **Fonts.** Space Grotesk (UI and clock) and JetBrains Mono (data), both SIL OFL 1.1, converted with `tools/gen_fonts.sh`. Licences in `assets/fonts/`.
 
 ## Performance notes (ESP32-S3)
