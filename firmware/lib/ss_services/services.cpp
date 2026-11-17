@@ -361,7 +361,12 @@ void Services::route(uint32_t now) {
       case CMD_SEND_TEXT: case CMD_SOS: mesh.inbox.push(c); break;
       case CMD_WP_SAVE: case CMD_WP_DELETE: case CMD_SET_SETTINGS: store.inbox.push(c); break;
       case CMD_HAPTIC: if (shared.settings.haptics) hal.haptics->play((uint8_t)c.a); break;
-      case CMD_SLEEP: hal.backlight->set(0); hal.siren->set(false, 0); hal.led->set(0, 0, 0); hal.sys->deep_sleep(); break;
+      case CMD_SLEEP: {
+        if (shared.sos) break; // never sleep through an active SOS
+        uint8_t f[32]; size_t n = ubx::backup_request(f, sizeof f); hal.gnss->write(f, (int)n); // GNSS has no power switch
+        hal.backlight->set(0); hal.siren->set(false, 0); hal.led->set(0, 0, 0); hal.sys->deep_sleep();
+        break;
+      }
     }
   }
 }

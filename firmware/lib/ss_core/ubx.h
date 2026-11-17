@@ -27,6 +27,8 @@ class ValSet {
 };
 // Boot configuration: UBX only, NAV-PVT at 1 Hz, GPS+Galileo+BeiDou, optional power save.
 size_t boot_config(bool power_save, uint8_t* out, size_t cap);
+// UBX-RXM-PMREQ: receiver backup until there is activity on its UART RX pin (used before deep sleep).
+size_t backup_request(uint8_t* out, size_t cap);
 
 struct Msg { uint8_t cls, id; uint16_t len; uint8_t payload[100]; };
 class Parser {

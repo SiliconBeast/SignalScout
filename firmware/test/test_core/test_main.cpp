@@ -297,6 +297,12 @@ static void test_svc_mesh_text_rx_tx() {
   bool found = false; for (auto& raw : s.rig.lora.sent) { mesh::Packet p; if (mesh::decode(raw.data(), raw.size(), p) && p.src == 0x51A7 && p.type == mesh::TEXT) found = true; }
   TEST_ASSERT_TRUE(found);
 }
+static void test_svc_sleep() {
+  Sys s; s.run(200); s.bus.cmds.push(Cmd(CMD_SLEEP)); s.run(50);
+  TEST_ASSERT_TRUE(s.rig.sys.slept); TEST_ASSERT_EQUAL(0, s.rig.backlight.pct);
+  Sys t; t.run(200); t.bus.cmds.push(Cmd(CMD_SOS, 1)); t.run(50); t.bus.cmds.push(Cmd(CMD_SLEEP)); t.run(50);
+  TEST_ASSERT_FALSE(t.rig.sys.slept); // SOS keeps the unit awake
+}
 static void test_svc_power_event() {
   Sys s; s.run(300); auto ev = s.drain(); bool ok = false;
   for (auto& e : ev) if (e.type == EV_POWER) { ok = true; TEST_ASSERT_FLOAT_WITHIN(0.1f, 82, e.u.power.pct); TEST_ASSERT_EQUAL(428, e.u.power.minutes); }
@@ -314,6 +320,6 @@ int main(int, char**) {
   RUN_TEST(test_geo_distance); RUN_TEST(test_geo_bearing);
   RUN_TEST(test_ubx_frame_checksum); RUN_TEST(test_ubx_valset_layout); RUN_TEST(test_ubx_nav_pvt);
   RUN_TEST(test_svc_settings_text); RUN_TEST(test_svc_keys_and_sos_hold); RUN_TEST(test_svc_sweep_flow);
-  RUN_TEST(test_svc_gnss_waypoint_storage); RUN_TEST(test_svc_mesh_text_rx_tx); RUN_TEST(test_svc_power_event);
+  RUN_TEST(test_svc_gnss_waypoint_storage); RUN_TEST(test_svc_mesh_text_rx_tx); RUN_TEST(test_svc_power_event); RUN_TEST(test_svc_sleep);
   return UNITY_END();
 }

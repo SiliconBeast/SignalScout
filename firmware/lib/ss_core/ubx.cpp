@@ -27,6 +27,11 @@ size_t boot_config(bool psm, uint8_t* o, size_t cap) {
   v.add(K_PM_OPERATEMODE, psm ? 2 : 0); // 2 = cyclic tracking power save, 0 = full power
   return v.finish(o, cap);
 }
+size_t backup_request(uint8_t* o, size_t cap) {
+  // version 0, duration 0 (until woken), flags = backup | force, wakeupSources = uartrx
+  const uint8_t p[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0x06, 0, 0, 0, 0x08, 0, 0, 0};
+  return frame(0x02, 0x41, p, sizeof p, o, cap);
+}
 bool Parser::feed(uint8_t c) {
   switch (st_) {
     case 0: if (c == 0xB5) st_ = 1; break;

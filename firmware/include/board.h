@@ -7,3 +7,10 @@
 #define SS_LCD_H 502
 #define SS_FW_VERSION "1.0.0"
 #define SS_FW_VERSION_BCD 0x0100
+// CO5300 RAM is 480 columns wide; the 410-column glass starts at column 22.
+#define SS_LCD_COL_OFFSET 22
+#define SS_LCD_ROW_OFFSET 0
+#define SS_LCD_SPI_HZ 40000000
+// u-blox M10 factory default UART baud rate.
+#define SS_GNSS_BAUD 9600
+#define SS_SLED_BAUD 115200
