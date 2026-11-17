@@ -1,0 +1,5 @@
+name: Signal Scout Sled
+description: Broadband RF detector for the Signal Scout pocket unit. The STM32 samples the AD8317 and talks to the base over the pogo UART; the Linux side scans Wi-Fi/Bluetooth and decides whether the detected energy is explained.
+icon: "📡"
+ports: []
+bricks: []

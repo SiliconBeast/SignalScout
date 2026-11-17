@@ -1,0 +1,71 @@
+name: CI
+on:
+  push:
+    branches: [main, firmware-v1]
+  pull_request:
+
+jobs:
+  host:
+    name: Tests + simulator
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-host-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Install tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-dev
+          pip install platformio
+      - name: Generated files are up to date
+        run: |
+          python tools/gen_pins.py
+          python tools/sync_shared.py --check
+          python tools/gen_vectors.py
+          git diff --exit-code
+      - name: Sled Python tests
+        run: python -m unittest discover -s sled/tests -v
+      - name: Firmware unit tests
+        working-directory: firmware
+        run: pio test -e native
+      - name: Build simulator
+        working-directory: firmware
+        run: pio run -e sim
+      - name: Render every screen
+        working-directory: firmware
+        run: |
+          mkdir -p shots
+          .pio/build/sim/program --shots shots
+          test "$(ls shots/*.png | wc -l)" -ge 19
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: firmware/shots
+
+  device:
+    name: ESP32-S3 firmware
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-device-${{ hashFiles('firmware/platformio.ini') }}
+      - run: pip install platformio
+      - name: Build
+        working-directory: firmware
+        run: pio run -e device
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            firmware/.pio/build/device/firmware.bin
+            firmware/.pio/build/device/bootloader.bin
+            firmware/.pio/build/device/partitions.bin
