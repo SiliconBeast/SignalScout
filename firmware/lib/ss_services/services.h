@@ -9,6 +9,8 @@
 #include "mesh.h"
 #include "ubx.h"
 #include "correlate.h"
+#include "weather.h"
+#include "ota.h"
 namespace ss {
 
 // Small cross-service blackboard. Single-word fields only, so plain reads and
@@ -17,6 +19,8 @@ struct Shared {
   volatile uint8_t mode = MODE_HOME;
   volatile int32_t lat_e7 = 0, lon_e7 = 0; volatile uint8_t fix = 0;
   volatile uint8_t batt_pct = 0;
+  volatile int32_t last_lat_e7 = 0, last_lon_e7 = 0; volatile bool have_pos = false; // last good fix (weather)
+  volatile float alt_m = 0; volatile int16_t brightness_override = -1;
   volatile float known_sum_dbm = -200, strongest_wifi = -200, strongest_ble = -200;
   volatile uint8_t n_wifi = 0, n_ble = 0;
   volatile bool sos = false; volatile uint8_t rf_state = 0;
@@ -42,7 +46,11 @@ class HouseSvc { // power, environment, status LED, backlight
   void tick(uint32_t now);
  private:
   Bus& bus_; Hal& hal_; Shared& sh_;
-  uint32_t t_power_ = 0, t_env_ = 0, t_led_ = 0, rev_ = 0xFFFFFFFF; bool started_ = false;
+  uint32_t t_power_ = 0, t_env_ = 0, t_led_ = 0, t_wx_ = 0, t_tilt_ = 0, rev_ = 0xFFFFFFFF; bool started_ = false;
+  int16_t bl_ = -2; float pitch_ = 0, roll_ = 0; Env env_{};
+ public:
+  wx::PressureLog plog; // public so the simulator can preload history
+  void publish_local_weather(uint32_t now);
 };
 
 class ScanSvc {
@@ -108,6 +116,24 @@ class StoreSvc { // settings, waypoints, CSV logs on microSD
   Waypoint wps_[MAX_WP]; int n_wp_ = 0;
 };
 
+class NetSvc { // Wi-Fi join, clock sync, forecast, updates, web console hotspot
+ public:
+  NetSvc(Bus& b, Hal& h, Shared& s) : bus_(b), hal_(h), sh_(s) {}
+  void tick(uint32_t now);
+  SsQueue<Cmd> inbox{8};
+  static const uint32_t JOIN_TIMEOUT_MS = 12000, RETRY_MS = 120000, WX_PERIOD_MS = 30 * 60000, OTA_PERIOD_MS = 24 * 3600000u;
+  static int load_networks(const char* text, char ssid[][33], char pass[][64], int max);
+ private:
+  void publish(uint32_t now); void ota_status(uint32_t now, uint8_t st, uint8_t prog = 0);
+  void fetch_weather(uint32_t now); void check_update(uint32_t now);
+  Bus& bus_; Hal& hal_; Shared& sh_;
+  bool want_ = false, ap_ = false, synced_ = false; uint8_t state_ = NET_OFF, last_pub_ = 255; int try_ = 0, n_nets_ = 0;
+  uint32_t t_join_ = 0, t_retry_ = 0, t_pub_ = 0, t_wx_ = 0, t_ota_ = 0; bool wx_due_ = true, ota_due_ = true;
+  char ssid_[4][33], pass_[4][64], ap_ssid_[20] = {0}, ap_pass_[12] = {0};
+  ota::Manifest man_{}; OtaStatus ota_{}; bool installing_ = false;
+  char buf_[6144];
+};
+
 // Owns everything and routes UI commands to the right inbox.
 class Services {
  public:
@@ -115,7 +141,7 @@ class Services {
   void route(uint32_t now);          // drain bus.cmds (control task)
   void tick_all(uint32_t now);       // simulator / tests: tick every service once
   Bus& bus; Hal& hal; Shared shared; SsQueue<LogLine> log{32};
-  InputSvc input; HouseSvc house; ScanSvc scan; SweepSvc sweep; GnssSvc gnss; MeshSvc mesh; StoreSvc store;
+  InputSvc input; HouseSvc house; ScanSvc scan; SweepSvc sweep; GnssSvc gnss; MeshSvc mesh; StoreSvc store; NetSvc net;
 };
 
 // Settings <-> "key=value\n" text (used by StoreSvc, unit-tested).
