@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 docs/screenshots/sheet_*.png
 .vscode/
+build-web/

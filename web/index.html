@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SignalOS Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a dark bench with the device as the object; a quiet spec panel beside it (stacks under on phones). */
+:root {
+  --bench: #0b0c0e;          /* the bench */
+  --bench-2: #15171b;
+  --shell: #23262c;          /* enclosure, graphite PETG */
+  --shell-hi: #3a3e46;
+  --shell-lo: #121418;
+  --cap: #30343b;            /* button caps */
+  --ink: #e9ebef;
+  --ink-dim: #8b919b;
+  --line: #2a2e35;
+  --phosphor: #39ff88;
+  --sos: #ff453a;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: radial-gradient(1200px 700px at 30% 20%, #1a1d22 0%, var(--bench) 60%) fixed, var(--bench);
+  color: var(--ink); font-family: var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px;
+}
+.wrap { display: flex; gap: 48px; align-items: flex-start; justify-content: center; flex-wrap: wrap; max-width: 1100px; margin: 0 auto; }
+.stage { flex: 0 0 auto; display: flex; justify-content: center; width: 100%; max-width: 520px; }
+.scaler { position: relative; }
+
+/* ---------------- device ---------------- */
+.device {
+  position: absolute; left: 0; top: 0; width: 466px; height: 790px; transform-origin: 0 0;
+  border-radius: 58px;
+  background: linear-gradient(160deg, var(--shell-hi) 0%, var(--shell) 18%, var(--shell) 70%, var(--shell-lo) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 0 rgba(0,0,0,.5), 0 30px 60px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.4);
+}
+.device.buzz { animation: buzz .12s linear; }
+@keyframes buzz { 0%,100% { translate: 0 0 } 25% { translate: -1.5px 0 } 50% { translate: 1.5px 0 } 75% { translate: -1px 0 } }
+@media (prefers-reduced-motion: reduce) { .device.buzz { animation: none; } }
+.bezel {
+  position: absolute; left: 22px; top: 40px; width: 422px; height: 514px; border-radius: 34px;
+  background: #000; box-shadow: inset 0 0 0 1px #000, 0 0 0 2px #0e0f12, 0 1px 0 3px rgba(255,255,255,.05);
+}
+canvas#screen {
+  position: absolute; left: 6px; top: 6px; width: 410px; height: 502px; border-radius: 28px;
+  touch-action: none; cursor: pointer; background: #000; transition: filter .25s ease;
+}
+.boot { position: absolute; inset: 6px; border-radius: 28px; display: grid; place-items: center; color: var(--ink-dim); font: 500 15px var(--mono); text-align: center; padding: 24px; }
+.boot[hidden] { display: none; }
+.glass { position: absolute; inset: 0; border-radius: 34px; pointer-events: none;
+  background: linear-gradient(125deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 32%); }
+.pipe { position: absolute; left: 50%; top: 18px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+  background: #0e0f12; box-shadow: inset 0 1px 1px rgba(0,0,0,.8); transition: background .1s, box-shadow .1s; }
+
+/* buttons: shared */
+.btn { position: absolute; border: 0; padding: 0; cursor: pointer; color: #c9ccd2; font: 700 15px var(--display);
+  background: linear-gradient(180deg, #3a3f47, var(--cap)); box-shadow: 0 3px 0 #15171b, 0 4px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+  touch-action: none; user-select: none; -webkit-user-select: none; transition: translate .05s, box-shadow .05s; }
+.btn.down { translate: 0 2px; box-shadow: 0 1px 0 #15171b, 0 1px 3px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+.btn:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 3px; }
+
+/* D-pad: one cross-shaped cap with four press zones */
+.dpad { position: absolute; left: 44px; top: 592px; width: 156px; height: 156px; }
+.dpad .arm { position: absolute; background: linear-gradient(180deg, #3a3f47, var(--cap)); box-shadow: 0 3px 0 #15171b, 0 4px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12); }
+.dpad .h { left: 0; top: 52px; width: 156px; height: 52px; border-radius: 14px; }
+.dpad .v { left: 52px; top: 0; width: 52px; height: 156px; border-radius: 14px; }
+.dpad .hub { position: absolute; left: 62px; top: 62px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #2b2f36, #1e2126); }
+.dpad .zone { position: absolute; width: 52px; height: 52px; background: transparent; box-shadow: none; display: grid; place-items: center; }
+.dpad .zone svg { width: 16px; height: 16px; fill: #8b919b; }
+.dpad .zone.down svg { fill: var(--phosphor); }
+.dpad .zone.down { translate: 0 0; box-shadow: none; }
+.z-up { left: 52px; top: 0; } .z-down { left: 52px; top: 104px; } .z-left { left: 0; top: 52px; } .z-right { left: 104px; top: 52px; }
+.z-up svg { rotate: 0deg } .z-right svg { rotate: 90deg } .z-down svg { rotate: 180deg } .z-left svg { rotate: 270deg }
+
+.ab { width: 64px; height: 64px; border-radius: 50%; font-size: 20px; }
+.b-a { left: 362px; top: 600px; }
+.b-b { left: 284px; top: 664px; }
+.ab span { display: block; }
+
+/* edge controls */
+.side { left: 460px; top: 236px; width: 12px; height: 74px; border-radius: 0 7px 7px 0; box-shadow: 2px 0 4px rgba(0,0,0,.45), inset -1px 0 0 rgba(255,255,255,.08); }
+.side.down { translate: -2px 0; }
+.sos { left: 352px; top: -9px; width: 66px; height: 14px; border-radius: 7px 7px 0 0; background: linear-gradient(180deg, #ff6a5e, #c9241b);
+  box-shadow: 0 -2px 6px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.3); }
+.sos.down { translate: 0 2px; }
+.sos.siren { animation: siren .35s ease-in-out infinite alternate; }
+@keyframes siren { from { box-shadow: 0 0 0 rgba(255,69,58,0) } to { box-shadow: 0 -4px 22px rgba(255,69,58,.9) } }
+.lock { position: absolute; left: -10px; top: 220px; width: 12px; height: 70px; border-radius: 7px 0 0 7px; background: var(--shell-lo); box-shadow: inset 1px 0 0 rgba(255,255,255,.05); cursor: pointer; border: 0; padding: 0; }
+.lock::after { content: ""; position: absolute; left: 1px; top: 6px; width: 9px; height: 26px; border-radius: 4px; background: linear-gradient(180deg, #4a4f58, #2c3036); transition: top .15s ease; }
+.lock[aria-pressed="true"]::after { top: 38px; background: linear-gradient(180deg, #ff9f1c, #b86a00); }
+.lock:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 2px; }
+.edge-label { position: absolute; font: 600 9px var(--mono); letter-spacing: .14em; color: #5c626c; text-transform: uppercase; }
+.grille { position: absolute; left: 196px; top: 760px; display: flex; gap: 6px; }
+.grille i { display: block; width: 14px; height: 4px; border-radius: 2px; background: #121418; box-shadow: inset 0 1px 1px rgba(0,0,0,.8); }
+.mark { position: absolute; left: 0; right: 0; top: 566px; text-align: center; font: 600 10px var(--mono); letter-spacing: .32em; color: #4c525c; }
+
+/* ---------------- panel ---------------- */
+.panel { flex: 1 1 320px; max-width: 420px; min-width: 0; padding-top: 8px; }
+h1 { font: 700 30px/1.1 var(--display); margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--ink-dim); font-size: 15px; line-height: 1.5; margin: 0 0 22px; max-width: 60ch; }
+h2 { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--phosphor); margin: 26px 0 10px; }
+table.keys { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.keys td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.keys td:first-child { width: 40%; color: var(--ink-dim); }
+kbd { font: 600 12px var(--mono); padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--bench-2); color: var(--ink); }
+.toggles { display: grid; gap: 8px; }
+.tg { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.tg input { width: 18px; height: 18px; accent-color: var(--phosphor); }
+.readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ro { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bench-2); }
+.ro b { display: block; font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px; }
+.ro span { font: 600 16px var(--mono); font-variant-numeric: tabular-nums; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #1a1c20; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--line); }
+.note { color: var(--ink-dim); font-size: 13px; line-height: 1.5; margin-top: 22px; }
+.note a { color: var(--ink); }
+@media (max-width: 899px) { .wrap { gap: 28px; } .panel { max-width: 520px; } }
+</style>
+</head><body>
+
+<div class="wrap">
+  <div class="stage"><div class="scaler" id="scaler">
+    <div class="device" id="device">
+      <button class="btn sos" id="b-sos" data-key="128" aria-label="SOS (hold 2 seconds)"></button>
+      <span class="edge-label" style="left:356px;top:12px">sos</span>
+      <span class="pipe" id="pipe" title="Status LED"></span>
+      <button class="lock" id="lock" aria-pressed="false" aria-label="Lock switch"></button>
+      <button class="btn side" id="b-side" data-key="64" aria-label="Side button"></button>
+      <div class="bezel">
+        <canvas id="screen" width="410" height="502" aria-label="SignalOS screen. Tap and swipe."></canvas>
+        <div class="boot" id="boot">Booting SignalOS…</div>
+        <div class="glass"></div>
+      </div>
+      <div class="mark">SIGNAL SCOUT</div>
+      <div class="dpad">
+        <div class="arm h"></div><div class="arm v"></div><div class="hub"></div>
+        <button class="btn zone z-up" data-key="1" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 3l6 8H2z"/></svg></button>
+        <button class="btn zone z-down" data-key="2" aria-label="Down"><svg viewBox="0 0 16 16"><path d="M8 3l6 8H2z"/></svg></button>
+        <button class="btn zone z-left" data-key="4" aria-label="Left"><svg viewBox="0 0 16 16"><path d="M8 3l6 8H2z"/></svg></button>
+        <button class="btn zone z-right" data-key="8" aria-label="Right"><svg viewBox="0 0 16 16"><path d="M8 3l6 8H2z"/></svg></button>
+      </div>
+      <button class="btn ab b-a" data-key="16" aria-label="A"><span>A</span></button>
+      <button class="btn ab b-b" data-key="32" aria-label="B"><span>B</span></button>
+      <div class="grille"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div></div>
+
+  <aside class="panel">
+    <h1>SignalOS Simulator</h1>
+    <p class="lede">The real Signal Scout firmware UI and services, compiled to WebAssembly and running on simulated radios, GPS, sled and mesh. Press the buttons, or tap and swipe the screen.</p>
+
+    <h2>Controls</h2>
+    <table class="keys">
+      <tr><td>D-pad</td><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td></tr>
+      <tr><td>A: select, hold for quick actions</td><td><kbd>Z</kbd> or <kbd>Enter</kbd></td></tr>
+      <tr><td>B: back, hold for home</td><td><kbd>X</kbd> or <kbd>Esc</kbd></td></tr>
+      <tr><td>Side: home, then shade</td><td><kbd>H</kbd></td></tr>
+      <tr><td>SOS: hold 2 s</td><td><kbd>S</kbd></td></tr>
+      <tr><td>Lock switch</td><td><kbd>L</kbd></td></tr>
+      <tr><td>Shade</td><td>Swipe down from the top edge</td></tr>
+      <tr><td>Home / unlock</td><td>Swipe up from the bottom edge</td></tr>
+      <tr><td>Back</td><td>Swipe right from the left edge</td></tr>
+    </table>
+
+    <h2>Simulated world</h2>
+    <div class="toggles">
+      <label class="tg"><input type="checkbox" id="t-sled" checked> UNO Q sled attached</label>
+      <label class="tg"><input type="checkbox" id="t-usb"> USB charging</label>
+      <label class="tg"><input type="checkbox" id="t-sound"> Sound (siren, haptic clicks)</label>
+    </div>
+
+    <h2>Hardware outputs</h2>
+    <div class="readouts">
+      <div class="ro"><b>Status LED</b><span><i class="dot" id="led-dot"></i><span id="led-v">off</span></span></div>
+      <div class="ro"><b>Siren</b><span id="siren-v">off</span></div>
+      <div class="ro"><b>Haptic events</b><span id="hap-v">0</span></div>
+      <div class="ro"><b>Brightness</b><span id="bri-v">0%</span></div>
+    </div>
+
+    <p class="note">The simulator walks through first-boot setup. Wi-Fi joins a simulated network called "HackerspaceYEG", so weather and updates have data. The mesh peer B7C4 sends a message every few seconds, and waypoints are preloaded. Button layout follows the rev C5 enclosure caps; proportions are approximate.</p>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const W = 410, H = 502, DEV_W = 466, DEV_H = 790;
+  const canvas = document.getElementById('screen'), ctx = canvas.getContext('2d');
+  const device = document.getElementById('device'), scaler = document.getElementById('scaler');
+  let ex = null, keys = 0, lockOn = false, lastHap = 0, audio = null, osc = null;
+
+  // fit the device to the viewport
+  function fit() {
+    const stage = scaler.parentElement.getBoundingClientRect();
+    const s = Math.min(1, stage.width / (DEV_W + 12), (window.innerHeight - 40) / DEV_H);
+    const k = Math.max(0.45, s);
+    device.style.transform = `scale(${k})`;
+    scaler.style.width = (DEV_W * k) + 'px'; scaler.style.height = (DEV_H * k) + 'px';
+  }
+  window.addEventListener('resize', fit); fit();
+
+  const setKeys = () => { if (ex) ex.ss_keys(keys | (lockOn ? 256 : 0)); };
+  // on-device buttons: press and hold
+  document.querySelectorAll('[data-key]').forEach(b => {
+    const bit = +b.dataset.key;
+    const down = e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (_) {} b.classList.add('down'); keys |= bit; setKeys(); };
+    const up = () => { b.classList.remove('down'); keys &= ~bit; setKeys(); };
+    b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+    b.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); b.classList.add('down'); keys |= bit; setKeys(); } });
+    b.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') up(); });
+  });
+  const lock = document.getElementById('lock');
+  const toggleLock = () => { lockOn = !lockOn; lock.setAttribute('aria-pressed', lockOn); setKeys(); };
+  lock.addEventListener('click', toggleLock);
+
+  // keyboard
+  const map = { ArrowUp: 1, ArrowDown: 2, ArrowLeft: 4, ArrowRight: 8, z: 16, Z: 16, Enter: 16, x: 32, X: 32, Escape: 32, Backspace: 32, h: 64, H: 64, s: 128, S: 128 };
+  const btnFor = bit => document.querySelector(`[data-key="${bit}"]`);
+  window.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input,button,label')) { if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) || e.target.tagName === 'INPUT') return; }
+    if (e.key === 'l' || e.key === 'L') { if (!e.repeat) toggleLock(); return; }
+    const bit = map[e.key]; if (!bit) return;
+    e.preventDefault(); keys |= bit; btnFor(bit)?.classList.add('down'); setKeys();
+  });
+  window.addEventListener('keyup', e => { const bit = map[e.key]; if (!bit) return; keys &= ~bit; btnFor(bit)?.classList.remove('down'); setKeys(); });
+  window.addEventListener('blur', () => { keys = 0; document.querySelectorAll('.down').forEach(b => b.classList.remove('down')); setKeys(); });
+
+  // touch on the screen
+  const pt = e => { const r = canvas.getBoundingClientRect(); return [Math.round((e.clientX - r.left) * W / r.width), Math.round((e.clientY - r.top) * H / r.height)]; };
+  let touching = false;
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); try { canvas.setPointerCapture(e.pointerId); } catch (_) {} touching = true; const [x, y] = pt(e); ex && ex.ss_touch(x, y, 1); });
+  canvas.addEventListener('pointermove', e => { if (!touching) return; const [x, y] = pt(e); ex && ex.ss_touch(Math.max(0, Math.min(W - 1, x)), Math.max(0, Math.min(H - 1, y)), 1); });
+  // LVGL polls input every ~30 ms: hold a quick tap's release briefly so the press is always seen.
+  const lift = e => { if (!touching) return; touching = false; const [x, y] = pt(e); const cx = Math.max(0, Math.min(W - 1, x)), cy = Math.max(0, Math.min(H - 1, y));
+    ex && ex.ss_touch(cx, cy, 1); setTimeout(() => { if (!touching && ex) ex.ss_touch(cx, cy, 0); }, 60); };
+  canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
+
+  // simulated world
+  document.getElementById('t-sled').addEventListener('change', e => ex && ex.ss_sled(e.target.checked ? 1 : 0));
+  document.getElementById('t-usb').addEventListener('change', e => ex && ex.ss_charging(e.target.checked ? 1 : 0));
+  const sound = document.getElementById('t-sound');
+  sound.addEventListener('change', () => { if (sound.checked && !audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { sound.checked = false; } } });
+  function click() { if (!audio || !sound.checked) return; const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 170; g.gain.setValueAtTime(.08, audio.currentTime); g.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + .04); o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + .05); }
+  function siren(hz) {
+    if (!audio || !sound.checked || !hz) { if (osc) { osc.stop(); osc = null; } return; }
+    if (!osc) { osc = audio.createOscillator(); const g = audio.createGain(); g.gain.value = .05; osc.type = 'square'; osc.connect(g).connect(audio.destination); osc.start(); }
+    osc.frequency.value = hz;
+  }
+
+  // outputs
+  const pipe = document.getElementById('pipe'), ledDot = document.getElementById('led-dot'), ledV = document.getElementById('led-v');
+  const sirenV = document.getElementById('siren-v'), hapV = document.getElementById('hap-v'), briV = document.getElementById('bri-v'), sosB = document.getElementById('b-sos');
+  let lastLed = -1, lastBri = -1, lastSiren = -1;
+  function outputs() {
+    const led = ex.ss_led();
+    if (led !== lastLed) {
+      lastLed = led; const r = led >> 16 & 255, g = led >> 8 & 255, b = led & 255;
+      const on = led !== 0, c = `rgb(${Math.min(255, r * 1.6)},${Math.min(255, g * 1.6)},${Math.min(255, b * 1.6)})`;
+      pipe.style.background = on ? c : '#0e0f12'; pipe.style.boxShadow = on ? `0 0 10px 2px ${c}` : 'inset 0 1px 1px rgba(0,0,0,.8)';
+      ledDot.style.background = on ? c : '#1a1c20'; ledV.textContent = on ? `${r},${g},${b}` : 'off';
+    }
+    const s = ex.ss_siren();
+    if (s !== lastSiren) { lastSiren = s; sirenV.textContent = s ? (s / 1000).toFixed(1) + ' kHz' : 'off'; sosB.classList.toggle('siren', !!s); siren(s); }
+    const h = ex.ss_haptic_count();
+    if (h !== lastHap) { lastHap = h; hapV.textContent = h; device.classList.remove('buzz'); void device.offsetWidth; device.classList.add('buzz'); click(); }
+    const bri = ex.ss_brightness();
+    if (bri !== lastBri) { lastBri = bri; briV.textContent = bri + '%'; canvas.style.filter = bri ? `brightness(${(0.42 + 0.58 * bri / 100).toFixed(2)})` : 'brightness(0)'; }
+  }
+
+  // boot the WebAssembly build (WASI reactor; it only imports three WASI calls)
+  const boot = document.getElementById('boot');
+  let mem = null;
+  const wasi = {
+    fd_write(fd, iovs, n, nw) { const v = new DataView(mem.buffer); let t = 0; for (let i = 0; i < n; i++) t += v.getUint32(iovs + i * 8 + 4, true); v.setUint32(nw, t, true); return 0; },
+    fd_close() { return 0; }, fd_seek() { return 70; },
+  };
+  fetch('signalos.wasm').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(b => WebAssembly.instantiate(b, { wasi_snapshot_preview1: wasi }))
+    .then(({ instance }) => {
+      ex = instance.exports; mem = ex.memory;
+      ex._initialize && ex._initialize();
+      ex.ss_init(); boot.hidden = true; setKeys();
+      let last = performance.now(), img = ctx.createImageData(W, H);
+      function frame(now) {
+        let dt = Math.min(100, now - last); last = now; dt = Math.max(10, Math.round(dt / 10) * 10);
+        ex.ss_step(dt);
+        const p = ex.ss_frame();
+        if (p) { img.data.set(new Uint8ClampedArray(mem.buffer, p, W * H * 4)); ctx.putImageData(img, 0, 0); }
+        outputs();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })
+    .catch(err => { boot.textContent = 'The simulator could not start (' + err.message + '). Reload the page to try again.'; });
+})();
+</script>
+</body></html>
