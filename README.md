@@ -219,4 +219,4 @@ The logic, UI and protocol are tested on the host (39 firmware tests, 7 sled tes
 
 ## License
 
-MIT, Copyright (c) 2026 Suvir Duggal. See [LICENSE](LICENSE). Covers the firmware, tools, PCB and enclosure files, and docs. The bundled Space Grotesk and JetBrains Mono fonts keep their own SIL Open Font License (see `assets/fonts/`).
+Copyright (c) 2026 Suvir Duggal. All rights reserved. No license is granted; see [LICENSE](LICENSE). The bundled Space Grotesk and JetBrains Mono fonts keep their own SIL Open Font License (see `assets/fonts/`).
