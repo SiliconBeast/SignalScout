@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <initializer_list>
 
 namespace ss { namespace ui {
 

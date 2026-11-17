@@ -109,7 +109,7 @@ struct Home : Page {
       struct { const char* k; char v[28]; bool ok; } L[4];
       snprintf(L[0].v, 28, "%s", v.sled_linked ? "linked" : "--"); L[0].k = "sled"; L[0].ok = v.sled_linked;
       snprintf(L[1].v, 28, v.lora.ok ? "node %04X" : "--", v.lora.node_id); L[1].k = "lora"; L[1].ok = v.lora.ok;
-      snprintf(L[2].v, 28, "%s", v.net.state == NET_ONLINE ? v.net.ssid : v.net.ap ? "hotspot" : "off"); L[2].k = "wifi"; L[2].ok = v.net.state == NET_ONLINE || v.net.ap;
+      snprintf(L[2].v, 28, "%.27s", v.net.state == NET_ONLINE ? v.net.ssid : v.net.ap ? "hotspot" : "off"); L[2].k = "wifi"; L[2].ok = v.net.state == NET_ONLINE || v.net.ap;
       snprintf(L[3].v, 28, "%s", !v.sd ? "no card" : v.settings.logging ? "logging" : "mounted"); L[3].k = "sd"; L[3].ok = v.sd;
       for (int k = 0; k < 4; k++) { int x = 14 + (k % 2) * (cw / 2), y = 36 + (k / 2) * 38;
         box(c, x, y + 6, 8, 8, L[k].ok ? t.acc : FAINT, 4); text(c, x + 16, y, L[k].k, M12, DIM); text_w(c, x + 16, y + 16, cw / 2 - 40, L[k].v, M14, TXT); }

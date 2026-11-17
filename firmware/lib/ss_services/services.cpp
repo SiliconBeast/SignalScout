@@ -146,7 +146,7 @@ void NetSvc::tick(uint32_t now) {
       else if (c.a == 1 && ota_.state == OTA_AVAILABLE) {
         if (sh_.sos) continue;
         installing_ = hal_.net->ota_begin(man_.url, man_.size, man_.sha256); ota_status(now, installing_ ? OTA_DOWNLOADING : OTA_ERROR);
-      } else if (c.a == 2 && ota_.state == OTA_READY && !sh_.sos) hal_.net->restart();
+      } else if (c.a == 2 && (ota_.state == OTA_READY || hal_.net->ota_poll() > 100) && !sh_.sos) hal_.net->restart(); // also after a web-console upload
     } else if (c.type == CMD_WX_REFRESH) { wx_due_ = true; }
     else if (c.type == CMD_WIFI_ADD) {
       char line[100]; snprintf(line, sizeof line, "%s", c.text); hal_.storage->append("/wifi.txt", line);

@@ -11,8 +11,15 @@ namespace dev {
 
 static spi_device_handle_t spi;
 static bool on = false;
-static const size_t LINES = 20;                         // rows per LVGL flush
+// Two 40-row buffers in internal RAM: LVGL renders one while DMA sends the other,
+// which is what keeps page slides and the shade drag smooth.
+static const size_t LINES = 40;
 static const size_t CHUNK = (size_t)SS_LCD_W * LINES * 2; // one flush = one SPI transaction (no reliance on 0x3C continue)
+static lv_display_t* disp = nullptr;
+static volatile bool dma_busy = false;
+static volatile int16_t want_level = -1; // brightness requested by other tasks, applied between flushes
+static spi_transaction_t px_trans;
+static void IRAM_ATTR on_dma_done(spi_transaction_t* t) { if (t == &px_trans) { dma_busy = false; lv_display_flush_ready(disp); } }
 
 // QSPI framing used by CO5300 / SH8601 class drivers:
 //   register write: opcode 0x02, 24-bit address 0x00:CMD:0x00, parameters on one data line
@@ -44,9 +51,14 @@ static void flush_cb(lv_display_t* d, const lv_area_t* a, uint8_t* px) {
   size_t n = (size_t)lv_area_get_width(a) * (size_t)lv_area_get_height(a);
   lv_draw_sw_rgb565_swap(px, (uint32_t)n); // panel is big-endian RGB565
   window(a->x1, a->y1, a->x2, a->y2);
-  pixels(px, n * 2);
-  lv_display_flush_ready(d);
+  if (n * 2 > CHUNK) { pixels(px, n * 2); lv_display_flush_ready(d); return; }
+  // Queue the pixels and return: the DMA-done callback releases the buffer.
+  memset(&px_trans, 0, sizeof px_trans);
+  px_trans.flags = SPI_TRANS_MODE_QIO; px_trans.cmd = 0x32; px_trans.addr = 0x002C00; px_trans.length = n * 16; px_trans.tx_buffer = px;
+  dma_busy = true;
+  if (spi_device_queue_trans(spi, &px_trans, portMAX_DELAY) != ESP_OK) { dma_busy = false; lv_display_flush_ready(d); }
 }
+static void wait_dma() { spi_transaction_t* r; while (dma_busy) { if (spi_device_get_trans_result(spi, &r, pdMS_TO_TICKS(20)) != ESP_OK) break; } }
 static void rounder_cb(lv_event_t* e) { // CO5300 requires even start and odd end coordinates
   lv_area_t* a = (lv_area_t*)lv_event_get_param(e);
   a->x1 &= ~1; a->y1 &= ~1; a->x2 |= 1; a->y2 |= 1;
@@ -62,7 +74,7 @@ bool display_begin() {
   if (spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO) != ESP_OK) return false;
   spi_device_interface_config_t dc; memset(&dc, 0, sizeof dc);
   dc.command_bits = 8; dc.address_bits = 24; dc.mode = 0; dc.clock_speed_hz = SS_LCD_SPI_HZ; dc.spics_io_num = PIN_LCD_CS;
-  dc.flags = SPI_DEVICE_HALFDUPLEX; dc.queue_size = 1;
+  dc.flags = SPI_DEVICE_HALFDUPLEX; dc.queue_size = 2; dc.post_cb = on_dma_done;
   if (spi_bus_add_device(SPI3_HOST, &dc, &spi) != ESP_OK) return false;
 
   cmd(0x11); delay(120);          // sleep out
@@ -78,19 +90,24 @@ bool display_begin() {
 
   size_t sz = CHUNK;
   uint8_t* buf = (uint8_t*)heap_caps_malloc(sz, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+  uint8_t* buf2 = (uint8_t*)heap_caps_malloc(sz, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
   if (!buf) return false;
-  lv_display_t* d = lv_display_create(SS_LCD_W, SS_LCD_H);
+  lv_display_t* d = lv_display_create(SS_LCD_W, SS_LCD_H); disp = d;
   lv_display_set_color_format(d, LV_COLOR_FORMAT_RGB565);
-  lv_display_set_buffers(d, buf, nullptr, (uint32_t)sz, LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_buffers(d, buf, buf2, (uint32_t)sz, LV_DISPLAY_RENDER_MODE_PARTIAL); // buf2 may be null: single-buffered fallback
   lv_display_set_flush_cb(d, flush_cb);
   lv_display_add_event_cb(d, rounder_cb, LV_EVENT_INVALIDATE_AREA, nullptr);
   return true;
 }
-void display_brightness(uint8_t pct) {
-  if (!spi) return;
+static void apply_brightness(uint8_t pct) {
   if (pct == 0) { if (on) { cmd(0x28); on = false; } return; }
   if (!on) { cmd(0x29); on = true; }
   cmd1(0x51, (uint8_t)(20 + (uint32_t)pct * 235 / 100));
 }
-void display_sleep() { if (!spi) return; cmd(0x28); cmd(0x10); on = false; delay(5); }
+void display_brightness(uint8_t pct) { want_level = pct; } // any task; applied by display_poll() on the UI task
+void display_poll() {
+  if (!spi || want_level < 0 || dma_busy) return;
+  int16_t v = want_level; want_level = -1; apply_brightness((uint8_t)v);
+}
+void display_sleep() { if (!spi) return; wait_dma(); cmd(0x28); cmd(0x10); on = false; delay(5); }
 }
