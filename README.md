@@ -8,6 +8,8 @@ It runs **SignalOS**: a lock screen and always-on display, a pull-down shade, no
 |---|---|---|---|---|---|
 | ![Home](docs/screenshots/03_home_hackerspace.png) | ![Today](docs/screenshots/10_today_hackerspace.png) | ![Shade](docs/screenshots/07_shade_hackerspace.png) | ![AOD](docs/screenshots/29_aod_adventure.png) | ![Adventure](docs/screenshots/20_home_adventure.png) | ![Weather](docs/screenshots/22_weather.png) |
 
+**Try it in a browser:** `web/` is the real SignalOS UI compiled to WebAssembly inside a clickable device frame, with touch and gestures. Run `python3 -m http.server -d web 8000` and open http://localhost:8000. Rebuild it with `tools/build_web.sh` (needs `pip install ziglang`).
+
 All 30 screens are in [docs/screenshots](docs/screenshots). The simulator renders them from the same UI code that runs on the device, driving it with scripted button presses and touch gestures.
 
 ## Hardware
@@ -140,6 +142,17 @@ It reports how much energy is present, not what the source is. The detector is b
 | Lock switch | Always-on display, keys ignored (SOS still works) |
 | Touch | Tap; swipe down from the top for the shade, up from the bottom for home, right from the left edge for back; long-press an icon |
 
+## What's next
+
+Most new features can ship as over-the-air updates. First in line:
+
+- **Safety:** Meshtastic compatibility, fall or crash detection with auto-SOS, a dead-man check-in timer, unknown BLE tracker detection.
+- **Installers:** a Wi-Fi site-survey heat map, RF fingerprinting from detector burst timing, network health checks.
+- **Outdoors:** breadcrumb track-back, GPX trips, offline maps, haptic navigation.
+- **Platform:** a phone companion over BLE for free-text messages, and installable script apps.
+
+Hardware additions (magnetometer, SDR, NFC, satellite) would come as sleds. Full list: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Repository layout
 
 | Path | Contents |
@@ -151,9 +164,10 @@ It reports how much energy is present, not what the source is. The detector is b
 | `firmware/lib/ss_mock` | Mock for every HAL interface (simulator and tests) |
 | `firmware/src/device` | ESP32-S3 drivers and FreeRTOS tasks |
 | `firmware/src/sim` | Desktop simulator and screenshot renderer |
+| `firmware/src/web`, `web/` | Browser simulator (WebAssembly) in a device frame |
 | `sled/signalscout_sled` | Arduino App Lab app for the UNO Q (sketch + Python) |
 | `assets/` | Icon tiles (PNG, both profiles) and fonts (OFL) |
-| `docs/` | [SignalOS](docs/SIGNALOS.md), [bring-up checklist](docs/BRINGUP.md), [protocol](docs/PROTOCOL.md), [hardware-verification list](docs/TODO.md), [pin map](docs/PINMAP.md) |
+| `docs/` | [SignalOS](docs/SIGNALOS.md), [roadmap](docs/ROADMAP.md), [bring-up checklist](docs/BRINGUP.md), [protocol](docs/PROTOCOL.md), [hardware-verification list](docs/TODO.md), [pin map](docs/PINMAP.md) |
 | `tools/` | Pin-map, icon, font and test-vector generators, shared-file sync, release manifest |
 
 ## Firmware design

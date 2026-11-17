@@ -8,7 +8,9 @@
 #include <freertos/queue.h>
 #else
 #include <deque>
+#ifndef __wasi__
 #include <mutex>
+#endif
 #endif
 namespace ss {
 
@@ -71,13 +73,21 @@ template <class T> class SsQueue {
   QueueHandle_t q_;
 };
 #else
+#ifdef __wasi__ // browser simulator: single-threaded, no std::mutex
+struct SsNoLock { void lock() {} void unlock() {} };
+#define SS_LOCK_T SsNoLock
+#define SS_GUARD(m) (void)0
+#else
+#define SS_LOCK_T std::mutex
+#define SS_GUARD(m) std::lock_guard<std::mutex> l(m)
+#endif
 template <class T> class SsQueue {
  public:
   explicit SsQueue(int depth = 16) : depth_((size_t)depth) {}
-  bool push(const T& v) { std::lock_guard<std::mutex> l(m_); if (q_.size() >= depth_) return false; q_.push_back(v); return true; }
-  bool pop(T& v, uint32_t = 0) { std::lock_guard<std::mutex> l(m_); if (q_.empty()) return false; v = q_.front(); q_.pop_front(); return true; }
+  bool push(const T& v) { SS_GUARD(m_); if (q_.size() >= depth_) return false; q_.push_back(v); return true; }
+  bool pop(T& v, uint32_t = 0) { SS_GUARD(m_); if (q_.empty()) return false; v = q_.front(); q_.pop_front(); return true; }
  private:
-  size_t depth_; std::deque<T> q_; std::mutex m_;
+  size_t depth_; std::deque<T> q_; SS_LOCK_T m_;
 };
 #endif
 

@@ -101,7 +101,7 @@ struct SettingsPage : Page {
       case S_LOG: s.logging = !s.logging; break;
       case S_UPDATE: ui.open_app(APP_UPDATES); return;
       case S_AUTOUPD: s.auto_update = !s.auto_update; break;
-      case S_ABOUT: { char b[48]; snprintf(b, sizeof b, "SignalOS %s  built %s", SS_FW_VERSION, __DATE__); ui.toast(b); return; }
+      case S_ABOUT: { char b[48]; snprintf(b, sizeof b, "SignalOS %s  node %04X", SS_FW_VERSION, ui.vm.lora.node_id); ui.toast(b); return; }
       case S_SLEEP: ui.cmd(Cmd(CMD_SLEEP)); return;
     }
     Ui& u = ui; u.haptic(); u.apply(s); if (u.page() == this) draw(false); // apply() may rebuild (and delete) this page
