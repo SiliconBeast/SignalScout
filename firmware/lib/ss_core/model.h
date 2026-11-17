@@ -3,7 +3,8 @@
 #include <stdint.h>
 namespace ss {
 
-enum Mode : uint8_t { MODE_HOME = 0, MODE_FIELD, MODE_SWEEP, MODE_BEACON, MODE_SETTINGS };
+enum Mode : uint8_t { MODE_HOME = 0, MODE_FIELD, MODE_SWEEP, MODE_BEACON, MODE_SETTINGS, MODE_LEVEL, MODE_AOD };
+enum Profile : uint8_t { PROFILE_HACKER = 0, PROFILE_ADVENTURE = 1 };
 
 enum Key : uint16_t {
   KEY_UP = 1 << 0, KEY_DOWN = 1 << 1, KEY_LEFT = 1 << 2, KEY_RIGHT = 1 << 3,
@@ -38,12 +39,42 @@ struct MeshText {
 
 struct Env { float temp_c = 0, rh = 0, hpa = 0; bool ok = false; };
 
+// Always-on display complications (Settings > Always-on).
+enum Complication : uint8_t { CX_NONE = 0, CX_WEATHER, CX_WAYPOINT, CX_BATTERY, CX_MESH, CX_SATS, CX_RF, CX_NET, CX_COUNT };
+
 struct Settings {
   uint8_t brightness = 70;  // %
   bool haptics = true, siren = true, metric = true, gnss_psm = false, logging = false;
   uint8_t lora_channel = 0; // index into lora::CHANNELS
   uint8_t lora_power = 20;  // dBm at the SX1262 (E22 max 22)
+  // SignalOS
+  uint8_t profile = PROFILE_HACKER;
+  bool setup_done = false;
+  bool aod = true;                 // always-on display when locked / idle
+  uint8_t aod_cx[3] = {CX_WEATHER, CX_WAYPOINT, CX_BATTERY};
+  uint8_t screen_off_s = 30;       // idle -> AOD (or off)
+  bool wifi = false;               // join saved networks (weather, time, updates)
+  bool auto_update = true;         // check for updates when online
+  int16_t tz_min = -420;           // UTC offset in minutes; replaced by the forecast's offset when online
+  uint8_t wp_target = 0;           // waypoint shown on the AOD / Navigate
 };
+
+// ---- connectivity / weather / updates
+enum NetState : uint8_t { NET_OFF = 0, NET_SCANNING, NET_CONNECTING, NET_ONLINE, NET_NO_NETWORK, NET_FAILED };
+struct NetStatus { uint8_t state; bool ap; uint8_t ap_clients; int8_t rssi; char ssid[33]; char ip[16]; char ap_ssid[20]; char ap_pass[12]; };
+
+struct WxDay { int8_t hi, lo; uint8_t cond, pop; };
+struct Weather {
+  bool online;                 // from the forecast service (else local barometer only)
+  uint8_t cond, rh, n_days; int8_t trend;  // trend: -1 falling, 0 steady, +1 rising pressure
+  float temp_c, wind_kmh, hpa, dp3h;
+  int8_t hourly[6]; uint8_t hourly_cond[6];
+  WxDay days[3];
+  char text[34];
+};
+
+enum OtaState : uint8_t { OTA_IDLE = 0, OTA_CHECKING, OTA_UP_TO_DATE, OTA_AVAILABLE, OTA_DOWNLOADING, OTA_VERIFYING, OTA_READY, OTA_ERROR };
+struct OtaStatus { uint8_t state, progress; uint32_t size; char version[16]; char notes[60]; };
 
 namespace lora {
 // 915 MHz ISM (Canada RSS-247 / US FCC 15.247). 500 kHz channels qualify as

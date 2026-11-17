@@ -33,7 +33,7 @@
 /* Only the widgets the UI uses (keeps flash small). */
 #define LV_USE_ANIMIMG 0
 #define LV_USE_CALENDAR 0
-#define LV_USE_CANVAS 0
+#define LV_USE_CANVAS 1 /* needed by the QR code */
 #define LV_USE_CHECKBOX 0
 #define LV_USE_DROPDOWN 0
 #define LV_USE_IMAGEBUTTON 0
@@ -56,6 +56,7 @@
 #define LV_USE_SWITCH 0
 #define LV_USE_SLIDER 0
 #define LV_BUILD_EXAMPLES 0
+#define LV_USE_QRCODE 1 /* web console join code */
 
 #ifdef SS_SDL
 #define LV_USE_SDL 1
