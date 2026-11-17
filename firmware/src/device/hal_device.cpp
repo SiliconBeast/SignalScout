@@ -193,7 +193,7 @@ struct System : ISystem {
     expander.inputs(); // reading the inputs releases EXP_INT
     // Wake on any key (expander interrupt, active low) or the SOS button.
     esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_EXP_INT, 0);
-    esp_sleep_enable_ext1_wakeup(1ULL << PIN_KEY_SOS, ESP_EXT1_WAKEUP_ALL_LOW);
+    esp_sleep_enable_ext1_wakeup(1ULL << PIN_KEY_SOS, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_deep_sleep_start();
   }
 };
