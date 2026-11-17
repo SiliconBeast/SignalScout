@@ -1,0 +1,31 @@
+name: Release
+# Tag v<version> (matching SS_FW_VERSION in firmware/include/board.h) to publish
+# firmware.bin + manifest.json. Devices pick it up from releases/latest.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install platformio
+      - name: Version matches the tag
+        run: grep -q "#define SS_FW_VERSION \"${GITHUB_REF_NAME#v}\"" firmware/include/board.h
+      - name: Build
+        working-directory: firmware
+        run: pio run -e device
+      - name: Manifest
+        run: python3 tools/make_release.py firmware/.pio/build/device/firmware.bin out --notes "$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/firmware.bin
+            out/manifest.json

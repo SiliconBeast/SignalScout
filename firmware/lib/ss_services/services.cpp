@@ -1,5 +1,7 @@
 #include "services.h"
 #include "battery.h"
+#include "board.h"
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -33,7 +35,8 @@ void InputSvc::tick(uint32_t now) {
 
 // ---------------------------------------------------------------- housekeeping
 void HouseSvc::tick(uint32_t now) {
-  if (rev_ != sh_.settings_rev || !started_) { started_ = true; rev_ = sh_.settings_rev; hal_.backlight->set(sh_.settings.brightness); }
+  int16_t want_bl = sh_.brightness_override >= 0 ? sh_.brightness_override : (int16_t)sh_.settings.brightness;
+  if (rev_ != sh_.settings_rev || !started_ || want_bl != bl_) { started_ = true; rev_ = sh_.settings_rev; bl_ = want_bl; hal_.backlight->set((uint8_t)want_bl); }
   if (due(now, t_power_, 2000)) {
     Event e(EV_POWER, now); Power& p = e.u.power; float rate = 0;
     p.gauge_ok = hal_.gauge->read(p.volts, p.pct, rate);
@@ -44,6 +47,16 @@ void HouseSvc::tick(uint32_t now) {
   }
   if (due(now, t_env_, 5000)) {
     Event e(EV_ENV, now); e.u.env.ok = hal_.env->read(e.u.env.temp_c, e.u.env.rh, e.u.env.hpa); bus_.events.push(e);
+    if (e.u.env.ok) { env_ = e.u.env; plog.add(now / 1000, wx::sea_level_hpa(env_.hpa, sh_.alt_m, env_.temp_c)); }
+  }
+  if (env_.ok && due(now, t_wx_, 60000)) publish_local_weather(now);
+  if (sh_.mode == MODE_LEVEL && due(now, t_tilt_, 50)) { // bubble level, 20 Hz, low-passed
+    float ax, ay, az;
+    if (hal_.imu->read(ax, ay, az)) {
+      float p = atan2f(ay, sqrtf(ax * ax + az * az)) * 57.29578f, r = atan2f(-ax, az) * 57.29578f;
+      pitch_ += 0.35f * (p - pitch_); roll_ += 0.35f * (r - roll_);
+      Event e(EV_TILT, now); e.u.tilt.pitch = pitch_; e.u.tilt.roll = roll_; bus_.events.push(e);
+    }
   }
   if (due(now, t_led_, 250)) {
     bool blink = (now / 250) & 1;
@@ -52,6 +65,119 @@ void HouseSvc::tick(uint32_t now) {
     else if (hal_.charger->charging()) hal_.led->set(40, 16, 0);
     else hal_.led->set(0, 0, 0);
   }
+}
+
+void HouseSvc::publish_local_weather(uint32_t now) {
+  Event e(EV_WEATHER, now); Weather& w = e.u.wx; memset(&w, 0, sizeof w);
+  w.online = false; w.temp_c = env_.temp_c; w.rh = (uint8_t)env_.rh; w.hpa = wx::sea_level_hpa(env_.hpa, sh_.alt_m, env_.temp_c);
+  float dp = 0; bool have = plog.trend(dp); w.dp3h = have ? dp : 0;
+  wx::Local l = wx::local_forecast(w.hpa, w.dp3h, 11, true);
+  w.cond = have ? l.cond : wx::UNKNOWN; w.trend = have ? l.trend : 0;
+  snprintf(w.text, sizeof w.text, "%s", have ? l.text : "Learning the pressure trend");
+  bus_.events.push(e);
+}
+
+// ---------------------------------------------------------------- network
+int NetSvc::load_networks(const char* t, char ssid[][33], char pass[][64], int max) {
+  int n = 0;
+  while (t && *t && n < max) {
+    const char* nl = strchr(t, '\n'); size_t len = nl ? (size_t)(nl - t) : strlen(t);
+    const char* tab = (const char*)memchr(t, '\t', len);
+    if (tab && tab > t && *t != '#') {
+      size_t a = (size_t)(tab - t), b = len - a - 1; if (b && t[a + b] == '\r') b--;
+      if (a < 33 && b < 64) { memcpy(ssid[n], t, a); ssid[n][a] = 0; memcpy(pass[n], tab + 1, b); pass[n][b] = 0; n++; }
+    }
+    t = nl ? nl + 1 : nullptr;
+  }
+  return n;
+}
+void NetSvc::publish(uint32_t now) {
+  Event e(EV_NET, now); NetStatus& s = e.u.net;
+  s.state = state_; s.ap = ap_; s.ap_clients = ap_ ? hal_.net->ap_clients() : 0;
+  s.rssi = state_ == NET_ONLINE ? hal_.net->sta_rssi() : 0;
+  if (state_ == NET_ONLINE || state_ == NET_CONNECTING) snprintf(s.ssid, sizeof s.ssid, "%s", ssid_[try_ % (n_nets_ ? n_nets_ : 1)]);
+  if (state_ == NET_ONLINE) hal_.net->ip(s.ip, sizeof s.ip);
+  snprintf(s.ap_ssid, sizeof s.ap_ssid, "%s", ap_ssid_); snprintf(s.ap_pass, sizeof s.ap_pass, "%s", ap_pass_);
+  bus_.events.push(e); last_pub_ = state_;
+}
+void NetSvc::ota_status(uint32_t now, uint8_t st, uint8_t prog) {
+  ota_.state = st; ota_.progress = prog;
+  Event e(EV_OTA, now); e.u.ota = ota_; bus_.events.push(e);
+}
+void NetSvc::fetch_weather(uint32_t now) {
+  if (!sh_.have_pos) return; // retried on the next period; the UI says a fix is needed
+  char url[384]; wx::open_meteo_url(url, sizeof url, sh_.last_lat_e7 / 1e7, sh_.last_lon_e7 / 1e7);
+  int n = hal_.net->http_get(url, buf_, sizeof buf_ - 1); wx_due_ = false; t_wx_ = now;
+  if (n <= 0) return;
+  buf_[n] = 0; Event e(EV_WEATHER, now); int32_t off = 0;
+  if (!wx::parse_open_meteo(buf_, e.u.wx, off)) return;
+  bus_.events.push(e);
+  if (off / 60 != sh_.settings.tz_min) { Event t(EV_TIME, now); t.u.time.utc = 0; t.u.time.tz_min = (int16_t)(off / 60); t.u.time.source = 0; bus_.events.push(t); }
+}
+void NetSvc::check_update(uint32_t now) {
+  ota_due_ = false; t_ota_ = now; ota_status(now, OTA_CHECKING);
+  int n = hal_.net->http_get(ota::MANIFEST_URL, buf_, sizeof buf_ - 1);
+  if (n <= 0) { ota_status(now, OTA_ERROR); return; }
+  buf_[n] = 0;
+  if (!ota::parse_manifest(buf_, man_)) { ota_status(now, OTA_ERROR); return; }
+  snprintf(ota_.version, sizeof ota_.version, "%s", man_.version); snprintf(ota_.notes, sizeof ota_.notes, "%.59s", man_.notes); ota_.size = man_.size;
+  ota_status(now, ota::should_offer(man_, SS_FW_VERSION) ? OTA_AVAILABLE : OTA_UP_TO_DATE);
+}
+void NetSvc::tick(uint32_t now) {
+  Cmd c;
+  while (inbox.pop(c)) {
+    if (c.type == CMD_NET) {
+      want_ = c.a != 0;
+      if (want_) {
+        char txt[1024]; int n = hal_.storage->read("/wifi.txt", txt, sizeof txt - 1); txt[n > 0 ? n : 0] = 0;
+        n_nets_ = load_networks(txt, ssid_, pass_, 4); try_ = 0; state_ = n_nets_ ? NET_SCANNING : NET_NO_NETWORK; t_retry_ = now;
+      } else { hal_.net->sta_end(); state_ = NET_OFF; synced_ = false; }
+      publish(now);
+    } else if (c.type == CMD_HOTSPOT) {
+      if (c.a && !ap_) {
+        uint16_t id = hal_.sys->node_id(); snprintf(ap_ssid_, sizeof ap_ssid_, "SignalScout-%04X", id);
+        uint32_t k = (uint32_t)id * 2654435761u; snprintf(ap_pass_, sizeof ap_pass_, "ss%08lx", (unsigned long)(k ^ 0x5C5C5C5Cu));
+        ap_ = hal_.net->ap_begin(ap_ssid_, ap_pass_);
+        if (!ap_) { Event t(EV_TOAST, now); snprintf(t.u.toast, sizeof t.u.toast, "Hotspot failed to start"); bus_.events.push(t); }
+      } else if (!c.a && ap_) { hal_.net->ap_end(); ap_ = false; }
+      publish(now);
+    } else if (c.type == CMD_OTA) {
+      if (c.a == 0) { if (state_ == NET_ONLINE) check_update(now); else ota_status(now, OTA_ERROR); }
+      else if (c.a == 1 && ota_.state == OTA_AVAILABLE) {
+        if (sh_.sos) continue;
+        installing_ = hal_.net->ota_begin(man_.url, man_.size, man_.sha256); ota_status(now, installing_ ? OTA_DOWNLOADING : OTA_ERROR);
+      } else if (c.a == 2 && (ota_.state == OTA_READY || hal_.net->ota_poll() > 100) && !sh_.sos) hal_.net->restart(); // also after a web-console upload
+    } else if (c.type == CMD_WX_REFRESH) { wx_due_ = true; }
+    else if (c.type == CMD_WIFI_ADD) {
+      char line[100]; snprintf(line, sizeof line, "%s", c.text); hal_.storage->append("/wifi.txt", line);
+    }
+  }
+  // station state machine: try each saved network in turn
+  if (want_ && n_nets_) {
+    uint8_t hw = hal_.net->sta_state();
+    if (state_ == NET_SCANNING || ((state_ == NET_NO_NETWORK || state_ == NET_FAILED) && (int32_t)(now - t_retry_) >= 0)) {
+      hal_.net->sta_begin(ssid_[try_ % n_nets_], pass_[try_ % n_nets_]); state_ = NET_CONNECTING; t_join_ = now;
+    } else if (state_ == NET_CONNECTING) {
+      if (hw == NET_ONLINE) { state_ = NET_ONLINE; wx_due_ = true; ota_due_ = sh_.settings.auto_update; }
+      else if (hw == NET_FAILED || (uint32_t)(now - t_join_) > JOIN_TIMEOUT_MS) {
+        hal_.net->sta_end(); try_++;
+        if (try_ % n_nets_ == 0) { state_ = NET_NO_NETWORK; t_retry_ = now + RETRY_MS; } else state_ = NET_SCANNING;
+      }
+    } else if (state_ == NET_ONLINE && hw != NET_ONLINE) { state_ = NET_SCANNING; synced_ = false; }
+  }
+  if (state_ == NET_ONLINE) {
+    uint32_t utc;
+    if (!synced_ && hal_.net->ntp(utc)) { synced_ = true; Event t(EV_TIME, now); t.u.time.utc = utc; t.u.time.tz_min = sh_.settings.tz_min; t.u.time.source = 2; bus_.events.push(t); }
+    if (wx_due_ || (uint32_t)(now - t_wx_) >= WX_PERIOD_MS) fetch_weather(now);
+    if (sh_.settings.auto_update && (ota_due_ || (uint32_t)(now - t_ota_) >= OTA_PERIOD_MS) && !installing_) check_update(now);
+  }
+  if (installing_) {
+    int p = hal_.net->ota_poll();
+    if (p < 0) { installing_ = false; ota_status(now, OTA_ERROR); }
+    else if (p > 100) { installing_ = false; ota_status(now, OTA_READY, 100); }
+    else if (p != ota_.progress) ota_status(now, p >= 100 ? OTA_VERIFYING : OTA_DOWNLOADING, (uint8_t)p);
+  }
+  if (state_ != last_pub_ || due(now, t_pub_, 5000)) publish(now);
 }
 
 // ---------------------------------------------------------------- wifi / ble scan
@@ -169,7 +295,7 @@ void GnssSvc::tick(uint32_t now) {
       got_pvt_ = true; last_pvt_ = now;
       const GnssFix& f = e.u.gnss;
       sh_.fix = f.valid ? 1 : 0;
-      if (f.valid) { sh_.lat_e7 = (int32_t)llround(f.lat * 1e7); sh_.lon_e7 = (int32_t)llround(f.lon * 1e7); }
+      if (f.valid) { sh_.lat_e7 = (int32_t)llround(f.lat * 1e7); sh_.lon_e7 = (int32_t)llround(f.lon * 1e7); sh_.last_lat_e7 = sh_.lat_e7; sh_.last_lon_e7 = sh_.lon_e7; sh_.alt_m = f.alt_m; sh_.have_pos = true; }
       bus_.events.push(e);
       if (sh_.settings.logging && f.valid && due(now, t_log_, 5000)) {
         LogLine l; snprintf(l.path, sizeof l.path, "/track.csv");
@@ -269,8 +395,10 @@ void MeshSvc::tick(uint32_t now) {
 
 // ---------------------------------------------------------------- storage
 int settings_to_text(const Settings& s, char* out, int cap) {
-  return snprintf(out, (size_t)cap, "brightness=%u\nhaptics=%u\nsiren=%u\nmetric=%u\ngnss_psm=%u\nlogging=%u\nlora_channel=%u\nlora_power=%u\n",
-                  s.brightness, s.haptics, s.siren, s.metric, s.gnss_psm, s.logging, s.lora_channel, s.lora_power);
+  return snprintf(out, (size_t)cap, "brightness=%u\nhaptics=%u\nsiren=%u\nmetric=%u\ngnss_psm=%u\nlogging=%u\nlora_channel=%u\nlora_power=%u\n"
+                  "profile=%u\nsetup_done=%u\naod=%u\naod_cx0=%u\naod_cx1=%u\naod_cx2=%u\nscreen_off_s=%u\nwifi=%u\nauto_update=%u\ntz_min=%d\nwp_target=%u\n",
+                  s.brightness, s.haptics, s.siren, s.metric, s.gnss_psm, s.logging, s.lora_channel, s.lora_power,
+                  s.profile, s.setup_done, s.aod, s.aod_cx[0], s.aod_cx[1], s.aod_cx[2], s.screen_off_s, s.wifi, s.auto_update, s.tz_min, s.wp_target);
 }
 void settings_from_text(const char* t, Settings& s) {
   while (t && *t) {
@@ -284,6 +412,15 @@ void settings_from_text(const char* t, Settings& s) {
       else if (!strcmp(key, "logging")) s.logging = val != 0;
       else if (!strcmp(key, "lora_channel")) s.lora_channel = (uint8_t)(val < 0 ? 0 : val % lora::N_CHANNELS);
       else if (!strcmp(key, "lora_power")) s.lora_power = (uint8_t)(val < 2 ? 2 : (val > 22 ? 22 : val));
+      else if (!strcmp(key, "profile")) s.profile = (uint8_t)(val ? PROFILE_ADVENTURE : PROFILE_HACKER);
+      else if (!strcmp(key, "setup_done")) s.setup_done = val != 0;
+      else if (!strcmp(key, "aod")) s.aod = val != 0;
+      else if (!strncmp(key, "aod_cx", 6) && key[6] >= '0' && key[6] <= '2' && !key[7]) s.aod_cx[key[6] - '0'] = (uint8_t)(val >= 0 && val < CX_COUNT ? val : CX_NONE);
+      else if (!strcmp(key, "screen_off_s")) s.screen_off_s = (uint8_t)(val < 10 ? 10 : val > 240 ? 240 : val);
+      else if (!strcmp(key, "wifi")) s.wifi = val != 0;
+      else if (!strcmp(key, "auto_update")) s.auto_update = val != 0;
+      else if (!strcmp(key, "tz_min")) s.tz_min = (int16_t)(val < -720 ? -720 : val > 840 ? 840 : val);
+      else if (!strcmp(key, "wp_target")) s.wp_target = (uint8_t)(val < 0 ? 0 : val > 15 ? 15 : val);
     }
     t = strchr(t, '\n'); if (t) t++;
   }
@@ -306,7 +443,7 @@ void StoreSvc::load() {
     }
   }
 }
-void StoreSvc::save_settings() { char buf[256]; settings_to_text(sh_.settings, buf, sizeof buf); hal_.storage->write("/settings.txt", buf); }
+void StoreSvc::save_settings() { char buf[512]; settings_to_text(sh_.settings, buf, sizeof buf); hal_.storage->write("/settings.txt", buf); }
 void StoreSvc::save_waypoints() {
   char buf[1024]; int o = 0; buf[0] = 0;
   for (int i = 0; i < n_wp_; i++) o += snprintf(buf + o, sizeof buf - (size_t)o, "%s,%.7f,%.7f\n", wps_[i].name, wps_[i].lat, wps_[i].lon);
@@ -352,7 +489,7 @@ void StoreSvc::tick(uint32_t now) {
 // ---------------------------------------------------------------- wiring
 Services::Services(Bus& b, Hal& h)
     : bus(b), hal(h), input(b, h, shared), house(b, h, shared), scan(b, h, shared), sweep(b, h, shared, log),
-      gnss(b, h, shared, log), mesh(b, h, shared, log), store(b, h, shared, log) {}
+      gnss(b, h, shared, log), mesh(b, h, shared, log), store(b, h, shared, log), net(b, h, shared) {}
 void Services::route(uint32_t now) {
   (void)now; Cmd c;
   while (bus.cmds.pop(c)) {
@@ -361,6 +498,8 @@ void Services::route(uint32_t now) {
       case CMD_SEND_TEXT: case CMD_SOS: mesh.inbox.push(c); break;
       case CMD_WP_SAVE: case CMD_WP_DELETE: case CMD_SET_SETTINGS: store.inbox.push(c); break;
       case CMD_HAPTIC: if (shared.settings.haptics) hal.haptics->play((uint8_t)c.a); break;
+      case CMD_NET: case CMD_HOTSPOT: case CMD_OTA: case CMD_WX_REFRESH: case CMD_WIFI_ADD: net.inbox.push(c); break;
+      case CMD_BRIGHTNESS: shared.brightness_override = (int16_t)c.a; break;
       case CMD_SLEEP: {
         if (shared.sos) break; // never sleep through an active SOS
         uint8_t f[32]; size_t n = ubx::backup_request(f, sizeof f); hal.gnss->write(f, (int)n); // GNSS has no power switch
@@ -371,6 +510,6 @@ void Services::route(uint32_t now) {
   }
 }
 void Services::tick_all(uint32_t now) {
-  route(now); store.tick(now); input.tick(now); house.tick(now); scan.tick(now); sweep.tick(now); gnss.tick(now); mesh.tick(now);
+  route(now); store.tick(now); input.tick(now); house.tick(now); scan.tick(now); sweep.tick(now); gnss.tick(now); mesh.tick(now); net.tick(now);
 }
 }

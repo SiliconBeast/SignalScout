@@ -65,10 +65,16 @@ If the screen stays black:
 
 If the picture is shifted sideways or shows a noisy strip at one edge, the column offset is wrong. If colours look wrong, remove the byte swap in `flush_cb`. If it works but glitches, lower `SS_LCD_SPI_HZ` to 20 MHz.
 
+## 4b. Touch
+
+1. The serial boot line should not include fault bit `0x80` (touch not found). The driver probes I2C `0x38` (FT3168 class) and `0x15` (CST816 class).
+2. Tap an app icon: it should open. If touches land mirrored or rotated, swap or invert the axes in `src/device/touch.cpp`.
+3. Swipe down from the very top: the shade should follow your finger. Swipe up from the bottom edge: home.
+
 ## 5. Keys, haptics, siren, LED
 
-1. Each D-pad key moves the focus ring; A opens a tile; B goes back; the side button returns home. You should feel a click on each move.
-2. Slide the lock switch: the lock screen appears. If it is inverted, flip the `EXP_KEY_LOCK` test in `hal_device.cpp`.
+1. Each D-pad key moves the focus ring; A opens an app; B goes back; the side button returns home (and opens the shade from the launcher). You should feel a click on each move.
+2. Slide the lock switch: the always-on display appears. If it is inverted, flip the `EXP_KEY_LOCK` test in `hal_device.cpp`.
 3. Plug in USB: the battery icon turns into a charge symbol and the LED glows dim orange.
 4. Hold SOS for 2 seconds: the status bar turns red, the siren alternates two tones and the LED blinks red. Hold again to cancel. Turn the siren off in Settings first if you are indoors.
 
@@ -90,8 +96,8 @@ Press A on the Position tab to save a waypoint, walk 50 m, and check the Waypoin
 
 ## 7. LoRa loopback
 
-1. Beacon, Position tab: the LoRa line should read `node XXXX` and a frequency. "Radio not responding" means the SX1262 did not initialise: check `LORA_BUSY` (IO39), `LORA_NRST` (IO41), the shared SPI lines, and that the module really has a 1.8 V TCXO on DIO3 (set in `hal_device.cpp`).
-2. With a second unit: send a quick reply from one (Messages tab, A) and confirm it appears on the other with RSSI and hop count. Then trigger SOS on one and confirm the other shows it.
+1. Position app: the LoRa line should read `node XXXX` and a frequency. "Radio not responding" means the SX1262 did not initialise: check `LORA_BUSY` (IO39), `LORA_NRST` (IO41), the shared SPI lines, and that the module really has a 1.8 V TCXO on DIO3 (set in `hal_device.cpp`).
+2. With a second unit: send a quick reply from one (Mesh app, A) and confirm it appears on the other with RSSI and hop count. Then trigger SOS on one and confirm the other shows it.
 3. With one unit and an SDR: tune to 903.0 MHz (channel 1) and confirm a 500 kHz wide burst when you send a message.
 4. With neither: the "sent" counter increasing only proves the radio accepted the packet.
 
@@ -109,6 +115,14 @@ Insert a FAT32 card. The card icon lights when "Log to microSD" is on in Setting
 
 If it stays on "NO SLED": check `SLED_TX`/`SLED_RX` continuity through the pogo pins and the 1 k series resistors, and that the sketch's `Serial` really is the D0/D1 UART on your UNO Q core.
 
-## 10. Sleep current
+## 10. Wi-Fi, web console and updates
+
+1. Open **Console** and press A. The QR code should join a phone to `SignalScout-XXXX`; `http://192.168.4.1` should list the card's files.
+2. Add your network in the console, then turn on **Wi-Fi** in the shade. Within about 15 s the status bar should show the Wi-Fi glyph, the clock should match network time, and Weather should show an online forecast (it needs one GPS fix first).
+3. Publish a test release with a higher version (tag `v1.1.1`). Updates should offer it, download it, verify it and restart. Check that the serial line shows the new version.
+4. Rollback check: flash a build that crashes at boot through OTA. The board should come back on the previous version by itself. Holding B at power-on should also boot the previous slot.
+5. Start an SOS during a download: the install must not restart the device until the SOS is cancelled.
+
+## 11. Sleep current
 
 Settings, Sleep now. The screen goes dark; any key wakes the unit (it reboots). Measure battery current while asleep and record it; see TODO.md for what stays powered.

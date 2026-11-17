@@ -16,6 +16,7 @@ enum EvType : uint8_t {
   EV_KEY, EV_POWER, EV_ENV, EV_GNSS, EV_RF, EV_SLED, EV_LORA, EV_SOS, EV_MSG, EV_SETTINGS, EV_STORAGE,
   EV_WIFI_BEGIN, EV_WIFI_AP, EV_WIFI_END, EV_BLE_BEGIN, EV_BLE_DEV, EV_BLE_END,
   EV_WP_BEGIN, EV_WP_ITEM, EV_WP_END, EV_TOAST,
+  EV_NET, EV_TIME, EV_WEATHER, EV_OTA, EV_TILT,
 };
 struct LoraStatus { bool ok; uint8_t channel; uint16_t node_id; uint16_t tx_count, rx_count; uint8_t budget_pct; };
 struct Event {
@@ -29,6 +30,9 @@ struct Event {
     struct { bool active; } sos;
     struct { bool mounted; } storage;
     char toast[48];
+    NetStatus net; Weather wx; OtaStatus ota;
+    struct { uint32_t utc; int16_t tz_min; uint8_t source; } time; // source: 1 GNSS, 2 network
+    struct { float pitch, roll; } tilt;
   } u;
   Event() { memset((void*)this, 0, sizeof *this); }
   explicit Event(EvType t, uint32_t now = 0) { memset((void*)this, 0, sizeof *this); type = t; t_ms = now; }
@@ -43,6 +47,12 @@ enum CmdType : uint8_t {
   CMD_SET_SETTINGS,  // settings
   CMD_HAPTIC,        // a = effect (Haptic)
   CMD_SLEEP,
+  CMD_NET,           // a = 1 join saved networks, 0 Wi-Fi off
+  CMD_HOTSPOT,       // a = 1 start the web console access point, 0 stop
+  CMD_OTA,           // a = 0 check, 1 download + install, 2 restart into the new firmware
+  CMD_WX_REFRESH,
+  CMD_BRIGHTNESS,    // a = override % (torch, AOD); -1 = back to the setting
+  CMD_WIFI_ADD,      // text = "ssid\tpassword"
 };
 enum Haptic : uint8_t { HAP_CLICK = 1, HAP_DOUBLE = 10, HAP_BUZZ = 14, HAP_ALERT = 16 }; // DRV2605 ROM effects
 struct Cmd {

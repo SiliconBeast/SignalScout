@@ -9,26 +9,31 @@ Nothing in this firmware has run on the boards yet. The host tests cover the log
 | F1 | Panel controller is CO5300, 410 x 502, column offset 22, big-endian RGB565 | `board.h`, `display.cpp` | 4 |
 | F2 | QSPI at 40 MHz is clean over the flex jumper | `SS_LCD_SPI_HZ` | 4 |
 | F3 | MAX-M10S comes up at 9600 baud and accepts the CFG-VALSET keys | `board.h`, `ubx.h` | 6 |
-| F4 | UBX-RXM-PMREQ puts the receiver in backup before deep sleep | `ubx.cpp` | 10 |
+| F4 | UBX-RXM-PMREQ puts the receiver in backup before deep sleep | `ubx.cpp` | 11 |
 | F5 | E22 needs TCXO 1.8 V on DIO3 and DC-DC mode; RXEN polarity on IO1 | `hal_device.cpp` | 7 |
 | F6 | AW9523B register setup: key inputs, LED current-sink mode, LED current range | `i2c_dev.cpp` | 5 |
 | F7 | Lock switch polarity (low = locked is assumed) | `hal_device.cpp` | 5 |
 | F8 | DRV2605L LRA settings suit the 8 mm LRA (auto-calibration is not run) | `i2c_dev.cpp` | 5 |
 | F9 | PAM8904 tone frequencies (2.6 and 3.1 kHz) match the piezo's resonance | `services.cpp` | 5 |
 | F10 | Wi-Fi scan, BLE scan and LoRa coexist without starving the UI | `main.cpp` task priorities | all |
-| F11 | Deep-sleep wake from the expander interrupt (IO15) and SOS (IO21) | `hal_device.cpp` | 10 |
+| F11 | Deep-sleep wake from the expander interrupt (IO15) and SOS (IO21) | `hal_device.cpp` | 11 |
 | F12 | UNO Q: `Serial` is the D0/D1 UART, `analogReadResolution(12)` works, Bridge calls behave as written | `sketch.ino` | 9 |
 | F13 | UNO Q Linux: `nmcli`/`iw` and `bleak` are usable inside the App Lab container | `scanners.py` | 9 |
 | F14 | AD8317 slope, intercept and front-end loss | `sketch.ino` | 9 |
 | F15 | The 6 dB "explained" margin gives sensible verdicts in real rooms | `correlate.h` | 9 |
+| F16 | Touch controller is FT3168 (0x38) or CST816 (0x15) class, axes match the panel | `touch.cpp` | 4b |
+| F17 | Double-buffered DMA flush with the CO5300 window commands between transfers, no tearing visible | `display.cpp` | 4 |
+| F18 | Station + passive scan + BLE + hotspot coexist (radio time-sharing) | `net_device.cpp`, `hal_device.cpp` | 10 |
+| F19 | HTTPS to Open-Meteo and GitHub with the ESP-IDF CA bundle; GitHub release redirects followed during OTA | `net_device.cpp` | 10 |
+| F20 | Rollback: a new image stays "pending verify" until 30 s of UI, and the bootloader reverts a crash-looping image | `main.cpp`, `net_device.cpp` | 10 |
 
 ## Not implemented
 
-- Touch input (the panel's touch controller is on the I2C bus and `TP_INT` is wired, but unused).
 - Free-text messages (quick replies only).
 - Sled ID EEPROM and sled fuel gauge on the second I2C bus (`SLED_SDA`/`SLED_SCL`) are not read.
-- IMU is initialised but not used for anything yet.
-- No firmware update over the air; flash over USB-C.
+- The IMU is used only by the Level app (no wrist-raise wake or step counting yet).
+- No on-screen keyboard: networks are added in the web console or `/wifi.txt`.
+- The sled app is updated through Arduino App Lab, not by the base's OTA.
 
 ## Hardware observations from reading the netlist
 

@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, firmware-v1]
+    branches: [main, firmware-v1, signalos]
   pull_request:
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p shots
           .pio/build/sim/program --shots shots
-          test "$(ls shots/*.png | wc -l)" -ge 19
+          test "$(ls shots/*.png | wc -l)" -ge 30
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots

@@ -11,6 +11,11 @@
 #include "geo.h"
 #include "ubx.h"
 #include "services.h"
+#include "json.h"
+#include "weather.h"
+#include "ota.h"
+#include "clock.h"
+#include <math.h>
 #include "mocks.h"
 using namespace ss;
 
@@ -309,6 +314,96 @@ static void test_svc_power_event() {
   TEST_ASSERT_TRUE(ok);
 }
 
+// ---------------------------------------------------------------- SignalOS core
+static void test_json_find_nested() {
+  const char* d = "{\"a\":{\"x\":\"}\",\"b\":[1,{\"c\":2}]},\"c\":3.5,\"s\":\"q\\\"t\",\"arr\":[1,null,-2.5]}";
+  double v; char s[8]; double a[4];
+  TEST_ASSERT_TRUE(json::num(json::find(d, "c"), v)); TEST_ASSERT_EQUAL_FLOAT(3.5, v);   // top level, not the nested "c"
+  const char* k[] = {"a", "x"}; TEST_ASSERT_TRUE(json::str(json::path(d, k, 2), s, sizeof s)); TEST_ASSERT_EQUAL_STRING("}", s);
+  TEST_ASSERT_TRUE(json::str(json::find(d, "s"), s, sizeof s)); TEST_ASSERT_EQUAL_STRING("q\"t", s);
+  TEST_ASSERT_EQUAL(3, json::nums(json::find(d, "arr"), a, 4)); TEST_ASSERT_TRUE(isnan(a[1])); TEST_ASSERT_EQUAL_FLOAT(-2.5, a[2]);
+  TEST_ASSERT_NULL(json::find(d, "missing"));
+}
+static void test_weather_open_meteo() {
+  mock::Clock c; mock::Net n(c); c.ms = 5000; n.sta_begin("HackerspaceYEG", ""); c.ms = 9000;
+  char buf[4096]; int len = n.http_get("https://api.open-meteo.com/v1/forecast?x", buf, sizeof buf); TEST_ASSERT_GREATER_THAN(100, len); buf[len] = 0;
+  Weather w; memset(&w, 0, sizeof w); int32_t off = 0;
+  TEST_ASSERT_TRUE(wx::parse_open_meteo(buf, w, off));
+  TEST_ASSERT_EQUAL(-25200, off); TEST_ASSERT_EQUAL_FLOAT(-6.4f, w.temp_c); TEST_ASSERT_EQUAL(wx::PARTLY, w.cond);
+  TEST_ASSERT_EQUAL(3, w.n_days); TEST_ASSERT_EQUAL(-5, w.days[1].hi); TEST_ASSERT_EQUAL(-13, w.days[1].lo); TEST_ASSERT_EQUAL(wx::SNOW, w.days[1].cond); TEST_ASSERT_EQUAL(80, w.days[1].pop);
+  TEST_ASSERT_EQUAL(-9, w.hourly[5]); TEST_ASSERT_EQUAL(wx::SNOW, w.hourly_cond[3]);
+  TEST_ASSERT_FALSE(wx::parse_open_meteo("{\"error\":true}", w, off));
+  char url[384]; TEST_ASSERT_LESS_THAN(384, wx::open_meteo_url(url, sizeof url, 53.5, -113.5));
+}
+static void test_weather_wmo_and_local() {
+  TEST_ASSERT_EQUAL(wx::CLEAR, wx::from_wmo(0)); TEST_ASSERT_EQUAL(wx::FOG, wx::from_wmo(45)); TEST_ASSERT_EQUAL(wx::RAIN, wx::from_wmo(81));
+  TEST_ASSERT_EQUAL(wx::SNOW, wx::from_wmo(86)); TEST_ASSERT_EQUAL(wx::STORM, wx::from_wmo(99)); TEST_ASSERT_EQUAL(wx::UNKNOWN, wx::from_wmo(42));
+  TEST_ASSERT_EQUAL(wx::CLEAR, wx::local_forecast(1035, 2.5f, 7, true).cond);       // high and rising: fine
+  TEST_ASSERT_EQUAL(1, wx::local_forecast(1035, 2.5f, 7, true).trend);
+  wx::Cond bad = wx::local_forecast(985, -4.0f, 11, true).cond;                       // low and falling fast: wet
+  TEST_ASSERT_TRUE(bad == wx::RAIN || bad == wx::STORM);
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, 1013.0f, wx::sea_level_hpa(898.7f, 1000, 8.5f));        // ~1000 m standard atmosphere
+}
+static void test_weather_pressure_trend() {
+  wx::PressureLog l; float dp;
+  l.add(0, 1010); TEST_ASSERT_FALSE(l.trend(dp));
+  for (uint32_t t = 600; t <= 3 * 3600; t += 600) l.add(t, 1010 - t / 3600.0f);     // -1 hPa/h
+  l.add(3 * 3600 + 10, 0);                                                             // too soon: ignored
+  TEST_ASSERT_TRUE(l.trend(dp)); TEST_ASSERT_FLOAT_WITHIN(0.05f, -3.0f, dp);
+}
+static void test_ota_manifest_and_semver() {
+  TEST_ASSERT_TRUE(ota::semver_cmp("1.10.0", "1.9.3") > 0); TEST_ASSERT_EQUAL(0, ota::semver_cmp("1.2", "1.2.0")); TEST_ASSERT_TRUE(ota::semver_cmp("0.9.9", "1.0.0") < 0);
+  ota::Manifest m;
+  const char* ok = "{\"version\":\"1.2.0\",\"url\":\"https://x/f.bin\",\"size\":100,\"sha256\":\"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff\",\"min_version\":\"1.1.0\"}";
+  TEST_ASSERT_TRUE(ota::parse_manifest(ok, m)); TEST_ASSERT_EQUAL_STRING("stable", m.channel); TEST_ASSERT_EQUAL(100, m.size);
+  TEST_ASSERT_TRUE(ota::should_offer(m, "1.1.0")); TEST_ASSERT_FALSE(ota::should_offer(m, "1.2.0")); TEST_ASSERT_FALSE(ota::should_offer(m, "1.0.5")); // below min_version
+  std::string http = ok; http.replace(http.find("https"), 5, "http");
+  TEST_ASSERT_FALSE(ota::parse_manifest(http.c_str(), m));                            // plain HTTP refused
+  std::string shortsha = ok; shortsha.replace(shortsha.find("00112233"), 2, "");
+  TEST_ASSERT_FALSE(ota::parse_manifest(shortsha.c_str(), m));
+}
+static void test_clock_roundtrip() {
+  uint32_t t = clk::to_unix(2026, 11, 17, 2, 42, 0); TEST_ASSERT_EQUAL_UINT32(1794883320u, t);
+  clk::Civil c = clk::from_unix(t); TEST_ASSERT_EQUAL(2026, c.year); TEST_ASSERT_EQUAL(11, c.month); TEST_ASSERT_EQUAL(17, c.day);
+  TEST_ASSERT_EQUAL(2, c.weekday); TEST_ASSERT_EQUAL_STRING("Tue", clk::weekday_short(c.weekday));
+  c = clk::from_unix(clk::to_unix(2028, 2, 29, 23, 59, 59)); TEST_ASSERT_EQUAL(29, c.day); TEST_ASSERT_EQUAL(59, c.second);
+}
+static void test_net_saved_networks() {
+  char s[4][33], p[4][64];
+  int n = NetSvc::load_networks("# home\nHackerspaceYEG\tsecret1\r\nbad line\nOpen Cafe\t\nTooMany\tx\n", s, p, 4);
+  TEST_ASSERT_EQUAL(3, n); TEST_ASSERT_EQUAL_STRING("HackerspaceYEG", s[0]); TEST_ASSERT_EQUAL_STRING("secret1", p[0]); TEST_ASSERT_EQUAL_STRING("", p[1]);
+}
+static void test_svc_net_join_time_weather_ota() {
+  Sys s; s.rig.storage.files["/wifi.txt"] = "Nope\tx\nHackerspaceYEG\tpw\n";
+  s.run(500); s.drain();
+  // give the GNSS a fix so the forecast has a position
+  s.svc.shared.have_pos = true; s.svc.shared.last_lat_e7 = 535200000; s.svc.shared.last_lon_e7 = -1135200000;
+  s.bus.cmds.push(Cmd(CMD_NET, 1)); s.run(16000);
+  bool online = false, time = false, wx = false, avail = false;
+  for (auto& e : s.drain()) {
+    if (e.type == EV_NET && e.u.net.state == NET_ONLINE) { online = true; TEST_ASSERT_EQUAL_STRING("HackerspaceYEG", e.u.net.ssid); }
+    if (e.type == EV_TIME && e.u.time.source == 2) time = true;
+    if (e.type == EV_WEATHER && e.u.wx.online) wx = true;
+    if (e.type == EV_OTA && e.u.ota.state == OTA_AVAILABLE) { avail = true; TEST_ASSERT_EQUAL_STRING("1.2.0", e.u.ota.version); }
+  }
+  TEST_ASSERT_TRUE(online); TEST_ASSERT_TRUE(time); TEST_ASSERT_TRUE(wx); TEST_ASSERT_TRUE(avail);
+  s.svc.shared.sos = true; s.bus.cmds.push(Cmd(CMD_OTA, 1)); s.run(300);              // never install during SOS
+  bool started = false; for (auto& e : s.drain()) if (e.type == EV_OTA && e.u.ota.state == OTA_DOWNLOADING) started = true;
+  TEST_ASSERT_FALSE(started);
+  s.svc.shared.sos = false; s.bus.cmds.push(Cmd(CMD_OTA, 1)); s.run(12000);
+  bool ready = false; for (auto& e : s.drain()) if (e.type == EV_OTA && e.u.ota.state == OTA_READY) ready = true;
+  TEST_ASSERT_TRUE(ready);
+}
+static void test_svc_local_weather_and_tilt() {
+  Sys s; for (uint32_t t = 0; t <= 3 * 3600; t += 600) s.svc.house.plog.add(t, 1012 - t / 1800.0f);
+  s.run(61000); bool local = false;
+  for (auto& e : s.drain()) if (e.type == EV_WEATHER && !e.u.wx.online) local = true;
+  TEST_ASSERT_TRUE(local);
+  s.bus.cmds.push(Cmd(CMD_SET_MODE, MODE_LEVEL)); s.run(2000); bool tilt = false;
+  float pitch = 0; for (auto& e : s.drain()) if (e.type == EV_TILT) { tilt = true; pitch = e.u.tilt.pitch; }
+  TEST_ASSERT_TRUE(tilt); TEST_ASSERT_FLOAT_WITHIN(0.05f, -1.15f, pitch);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_proto_crc_known); RUN_TEST(test_proto_roundtrip); RUN_TEST(test_proto_bad_crc_and_resync);
@@ -321,5 +416,8 @@ int main(int, char**) {
   RUN_TEST(test_ubx_frame_checksum); RUN_TEST(test_ubx_valset_layout); RUN_TEST(test_ubx_nav_pvt);
   RUN_TEST(test_svc_settings_text); RUN_TEST(test_svc_keys_and_sos_hold); RUN_TEST(test_svc_sweep_flow);
   RUN_TEST(test_svc_gnss_waypoint_storage); RUN_TEST(test_svc_mesh_text_rx_tx); RUN_TEST(test_svc_power_event); RUN_TEST(test_svc_sleep);
+  RUN_TEST(test_json_find_nested); RUN_TEST(test_weather_open_meteo); RUN_TEST(test_weather_wmo_and_local); RUN_TEST(test_weather_pressure_trend);
+  RUN_TEST(test_ota_manifest_and_semver); RUN_TEST(test_clock_roundtrip); RUN_TEST(test_net_saved_networks);
+  RUN_TEST(test_svc_net_join_time_weather_ota); RUN_TEST(test_svc_local_weather_and_tilt);
   return UNITY_END();
 }

@@ -11,6 +11,7 @@
 #include "battery.h"
 #include "i2c_dev.h"
 #include "display.h"
+#include "net_device.h"
 
 using namespace ss;
 namespace dev {
@@ -158,25 +159,29 @@ struct LoRa : ILoRa {
 struct Storage : IStorage {
   bool mounted_ = false; uint32_t t_try_ = 0;
   bool mounted() override {
-    if (mounted_) { if (SD.cardType() == CARD_NONE) { SD.end(); mounted_ = false; } return mounted_; }
-    if (millis() - t_try_ < 3000 && t_try_) return false;
-    t_try_ = millis() | 1; mounted_ = SD.begin(PIN_SD_CS, SPI, 20000000);
-    return mounted_;
+    sd_lock();
+    if (mounted_) { if (SD.cardType() == CARD_NONE) { SD.end(); mounted_ = false; } }
+    else if (!t_try_ || millis() - t_try_ >= 3000) { t_try_ = millis() | 1; mounted_ = SD.begin(PIN_SD_CS, SPI, 20000000); }
+    sd_unlock(); return mounted_;
   }
+  // Every card access holds the SD lock: the web console reads the card from its own task.
   bool append(const char* path, const char* line) override {
     if (!mounted_) return false;
-    File f = SD.open(path, FILE_APPEND); if (!f) return false;
-    f.println(line); f.close(); return true;
+    sd_lock(); File f = SD.open(path, FILE_APPEND); bool ok = (bool)f;
+    if (ok) { f.println(line); f.close(); }
+    sd_unlock(); return ok;
   }
   int read(const char* path, char* buf, int max) override {
     if (!mounted_) return -1;
-    File f = SD.open(path, FILE_READ); if (!f) return -1;
-    int n = (int)f.read((uint8_t*)buf, (size_t)max); f.close(); return n;
+    sd_lock(); File f = SD.open(path, FILE_READ); int n = -1;
+    if (f) { n = (int)f.read((uint8_t*)buf, (size_t)max); f.close(); }
+    sd_unlock(); return n;
   }
   bool write(const char* path, const char* data) override {
     if (!mounted_) return false;
-    File f = SD.open(path, FILE_WRITE); if (!f) return false;
-    f.print(data); f.close(); return true;
+    sd_lock(); File f = SD.open(path, FILE_WRITE); bool ok = (bool)f;
+    if (ok) { f.print(data); f.close(); }
+    sd_unlock(); return ok;
   }
 };
 
@@ -216,6 +221,7 @@ uint32_t hal_begin(Hal& hal) {
   if (!expander.begin()) faults |= F_EXPANDER; // also switches the display rail on
   delay(30);
   if (!display_begin()) faults |= F_DISPLAY;
+  else if (!touch_begin()) faults |= F_TOUCH;
   if (!gauge_ic.begin()) faults |= F_GAUGE;
   if (!haptic_ic.begin()) faults |= F_HAPTIC;
   if (!bme.begin()) faults |= F_BME;
@@ -230,12 +236,14 @@ uint32_t hal_begin(Hal& hal) {
   Serial0.begin(SS_SLED_BAUD, SERIAL_8N1, PIN_SLED_RX, PIN_SLED_TX);
   gnss.reset();
 
-  WiFi.mode(WIFI_STA); WiFi.disconnect(); // station mode only so that scans work; never connects or transmits data
+  // Station mode for passive scans. It joins a network only when the user turns Wi-Fi on (NetSvc),
+  // and runs a hotspot only while the web console is open.
+  WiFi.mode(WIFI_STA); WiFi.disconnect(); WiFi.setAutoReconnect(false);
   NimBLEDevice::init("");
 
   hal.buttons = &buttons; hal.led = &led; hal.backlight = &backlight; hal.gauge = &gauge; hal.charger = &charger; hal.haptics = &haptics;
   hal.siren = &siren; hal.imu = &imu; hal.env = &env; hal.wifi = &wifi; hal.ble = &ble; hal.gnss = &gnss; hal.lora = &lora;
-  hal.sled = &sled; hal.storage = &storage; hal.sys = &sys;
+  hal.sled = &sled; hal.storage = &storage; hal.sys = &sys; hal.net = net_device();
   return faults;
 }
 }

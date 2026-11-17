@@ -29,7 +29,7 @@ struct FuelGauge : IFuelGauge {
 struct Charger : ICharger { bool chg = false, usb = false; bool charging() override { return chg; } bool usb_present() override { return usb; } };
 struct Haptics : IHaptics { int plays = 0; uint8_t last = 0; void play(uint8_t e) override { plays++; last = e; } };
 struct Siren : ISiren { bool on = false; uint16_t hz = 0; int changes = 0; void set(bool o, uint16_t h) override { on = o; hz = h; changes++; } };
-struct Imu : IImu { bool read(float& x, float& y, float& z) override { x = 0; y = 0; z = 1; return true; } };
+struct Imu : IImu { float x = 0.04f, y = -0.02f; bool read(float& ax, float& ay, float& az) override { ax = x; ay = y; az = 1; return true; } };
 struct EnvSensor : IEnv { bool read(float& t, float& h, float& p) override { t = 21.4f; h = 38; p = 934.2f; return true; } };
 
 struct Wifi : IWifiScanner {
@@ -161,9 +161,49 @@ struct Storage : IStorage {
 struct System : ISystem { bool slept = false; uint16_t node_id() override { return 0x51A7; } void deep_sleep() override { slept = true; } };
 
 // Everything wired together.
+// Wi-Fi station / hotspot / HTTPS / OTA. One known network ("HackerspaceYEG"), canned
+// forecast and release manifest, OTA progress at ~1.2 %/100 ms.
+struct Net : INet {
+  Clock& clk; explicit Net(Clock& c) : clk(c) {}
+  std::string known = "HackerspaceYEG", ssid; uint32_t t_join = 0; bool joining = false, ap = false; uint32_t t_ap = 0, t_ota = 0; bool ota = false;
+  int gets = 0; bool offline = false; uint32_t unix_at_0 = 1794863640u; // 2026-11-16 21:14 UTC, same clock as the GNSS mock
+  void sta_begin(const char* s, const char*) override { ssid = s; joining = true; t_join = clk.ms; }
+  void sta_end() override { joining = false; ssid.clear(); }
+  uint8_t sta_state() override {
+    if (!joining) return NET_OFF;
+    if (clk.ms - t_join < 1800) return NET_CONNECTING;
+    return (ssid == known && !offline) ? NET_ONLINE : NET_FAILED;
+  }
+  int8_t sta_rssi() override { return -58; }
+  void ip(char* o, int cap) override { snprintf(o, (size_t)cap, "10.42.0.37"); }
+  bool ap_begin(const char*, const char*) override { ap = true; t_ap = clk.ms; return true; }
+  void ap_end() override { ap = false; }
+  uint8_t ap_clients() override { return ap && clk.ms - t_ap > 3000 ? 1 : 0; }
+  int http_get(const char* url, char* buf, int cap) override {
+    gets++; if (sta_state() != NET_ONLINE) return -1;
+    const char* body = nullptr;
+    if (strstr(url, "open-meteo")) body =
+      "{\"latitude\":53.52,\"longitude\":-113.52,\"utc_offset_seconds\":-25200,\"current_units\":{\"temperature_2m\":\"\u00b0C\"},"
+      "\"current\":{\"time\":\"2026-11-16T19:30\",\"temperature_2m\":-6.4,\"relative_humidity_2m\":71,\"weather_code\":2,\"wind_speed_10m\":14.2,\"surface_pressure\":928.6},"
+      "\"hourly\":{\"time\":[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\"],\"temperature_2m\":[-6.4,-7.1,-7.9,-8.6,-9.0,-9.3],\"weather_code\":[2,3,3,71,71,73]},"
+      "\"daily\":{\"time\":[\"2026-11-16\",\"2026-11-17\",\"2026-11-18\"],\"weather_code\":[2,73,0],\"temperature_2m_max\":[-2.1,-4.8,-1.0],"
+      "\"temperature_2m_min\":[-9.4,-12.6,-11.2],\"precipitation_probability_max\":[10,80,5]}}";
+    else if (strstr(url, "manifest.json")) body =
+      "{\"version\":\"1.2.0\",\"channel\":\"stable\",\"url\":\"https://github.com/SiliconBeast/SignalScout/releases/download/v1.2.0/firmware.bin\","
+      "\"size\":1843200,\"sha256\":\"9f2c0d6e3b1a4f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706\",\"min_version\":\"1.0.0\","
+      "\"notes\":\"Spectrum waterfall, faster GNSS start, mesh range up 15%\"}";
+    if (!body) return -1;
+    int n = (int)strlen(body); if (n >= cap) n = cap - 1; memcpy(buf, body, (size_t)n); return n;
+  }
+  bool ntp(uint32_t& u) override { if (sta_state() != NET_ONLINE) return false; u = unix_at_0 + clk.ms / 1000; return true; }
+  bool ota_begin(const char*, uint32_t, const char*) override { ota = true; t_ota = clk.ms; return true; }
+  int ota_poll() override { if (!ota) return -1; uint32_t p = (clk.ms - t_ota) / 80; return p > 100 ? (p > 110 ? 101 : 100) : (int)p; }
+  void restart() override {}
+};
+
 struct Rig {
   Clock clk; Buttons buttons; Led led; Backlight backlight; FuelGauge gauge; Charger charger; Haptics haptics; Siren siren; Imu imu; EnvSensor env;
-  Wifi wifi{clk}; Ble ble{clk}; Gnss gnss{clk}; LoRa lora{clk}; Sled sled{clk}; Storage storage; System sys;
-  Hal hal{&buttons, &led, &backlight, &gauge, &charger, &haptics, &siren, &imu, &env, &wifi, &ble, &gnss, &lora, &sled, &storage, &sys};
+  Wifi wifi{clk}; Ble ble{clk}; Gnss gnss{clk}; LoRa lora{clk}; Sled sled{clk}; Storage storage; System sys; Net net{clk};
+  Hal hal{&buttons, &led, &backlight, &gauge, &charger, &haptics, &siren, &imu, &env, &wifi, &ble, &gnss, &lora, &sled, &storage, &sys, &net};
 };
 }}
