@@ -75,4 +75,9 @@ Six vias in E22 pins 13 to 18 and one in U1 pin 21 (`LCD_D1`) cannot move: above
 ### Solder mask bridges under 0.19 mm
 U6 (LGA-14, 0.15 mm between pads) and U10 corner pins (0.177 mm) use the standard footprints. Let the fab open the mask there.
 
+### ESP32 module (U1) DRC fixes
+- **Ground plane under the antenna removed.** U1's antenna keep-out covered F.Cu, B.Cu and In2 but not In1, so the L2 GND plane filled under the PCB antenna (about 100 mm²). That detunes the antenna and cuts Wi-Fi/BLE range. The keep-out now includes In1.
+- **H2 notch.** The keep-out is cut back to end at y = 176.3 for x < 146, which takes mounting hole H2 out of it (the hole sits 5.6 mm below the antenna end). **Use a nylon M2 screw or standoff in H2**; a metal one this close detunes the antenna.
+- **Courtyard.** U1's body courtyard margin went from 0.75 mm (library) to 0.19 mm. The module body is 18 mm and sits in an 18.45 mm gap between the battery area and the USB-C (J2), so the library margin produced false overlaps with both. Physical clearances: 0.2 mm to the battery area, 0.25 mm to J2's courtyard.
+
 The schematic in this folder is still rev C.4 and the PCB footprints carry no schematic links, so the PCB is the source of truth for C7.

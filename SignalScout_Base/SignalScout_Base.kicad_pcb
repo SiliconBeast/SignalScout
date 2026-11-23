@@ -24892,8 +24892,8 @@
 			(uuid "68104ba9-4d4c-4cd1-b0c7-f96578c97c79")
 		)
 		(fp_line
-			(start -9.75 -13.45)
-			(end 9.75 -13.45)
+			(start -9.19 -13.45)
+			(end 9.19 -13.45)
 			(stroke
 				(width 0.05)
 				(type solid)
@@ -24902,8 +24902,8 @@
 			(uuid "a735db83-a491-48c5-91da-bd29f67f248e")
 		)
 		(fp_line
-			(start -9.75 -13.45)
-			(end -9.75 6.75)
+			(start -9.19 -13.45)
+			(end -9.19 6.75)
 			(stroke
 				(width 0.05)
 				(type solid)
@@ -24922,8 +24922,8 @@
 			(uuid "8b77cca1-a375-46b9-b108-a42d6fe476f3")
 		)
 		(fp_line
-			(start 9.75 6.75)
-			(end 9.75 -13.45)
+			(start 9.19 6.75)
+			(end 9.19 -13.45)
 			(stroke
 				(width 0.05)
 				(type solid)
@@ -24932,7 +24932,7 @@
 			(uuid "e3aaf4ce-d444-4900-bab5-31a89e6db046")
 		)
 		(fp_line
-			(start 9.75 6.75)
+			(start 9.19 6.75)
 			(end 24 6.75)
 			(stroke
 				(width 0.05)
@@ -24943,7 +24943,7 @@
 		)
 		(fp_line
 			(start -24 6.75)
-			(end -9.75 6.75)
+			(end -9.19 6.75)
 			(stroke
 				(width 0.05)
 				(type solid)
@@ -25395,7 +25395,7 @@
 			(uuid "b450c3db-9e1d-4617-ac40-0472e46151ed")
 		)
 		(zone
-			(layers "F.Cu" "B.Cu" "In2.Cu")
+			(layers "F.Cu" "In1.Cu" "In2.Cu" "B.Cu")
 			(uuid "a2715a5d-42ae-4089-852b-b34b70f7a032")
 			(hatch full 0.508)
 			(connect_pads
@@ -25420,7 +25420,7 @@
 			)
 			(polygon
 				(pts
-					(xy 140 188.4) (xy 140 140.4) (xy 161 140.4) (xy 161 188.4)
+					(xy 140 176.3) (xy 140 140.4) (xy 161 140.4) (xy 161 188.4) (xy 146 188.4) (xy 146 176.3)
 				)
 			)
 		)
