@@ -12,3 +12,7 @@ Changes from C5: magnet pockets cut into the back shell; lens trimmed 0.1 mm per
 | SS_C5a_LightPipe | Clear resin or clear PC, polished; sits over LED1 |
 
 Use a nylon M2 screw at H2 (next to the ESP32 antenna).
+
+## Combined print files
+- `SS_C5a_Caps_All.step`: all five caps laid out on one plate (62 x 22 mm), 4 mm apart, flat on Z = 0.
+- `SS_C5a_Lens_LightPipe.step`: display lens and light pipe on one plate (56 x 47 mm).
