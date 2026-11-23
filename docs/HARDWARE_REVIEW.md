@@ -61,7 +61,7 @@ While the unit is plugged in, PGOOD holds the line low, so a fall can't wake it 
 
 | Change | Where |
 |---|---|
-| R50 82 Ω, R51 22 Ω, R52 22 Ω in series with LED1 red, green and blue cathodes (LED side nets `LED_RK_D`, `LED_GK_D`, `LED_BK_D`) | F.Cu, next to LED1 |
+| R50 82 Ω, R51 22 Ω, R52 22 Ω in series with LED1 red, green and blue cathodes (LED side nets `LED_RK_D`, `LED_GK_D`, `LED_BK_D`) | F.Cu, next to LED1, courtyards clear of LED1 and H4 |
 | R53 1 kΩ, U6 pin 9 (`IMU_INT`) to `SPARE_IO` | F.Cu at (126.46, 120.5) |
 | U10 pin 7 (PGOOD) to `SPARE_IO` | B.Cu out of the pin, then In2 to the existing `SPARE_IO` run |
 | `CHG_N` rerouted around U10 (via, short In2 hop) | It blocked the only exit from pin 7 |
