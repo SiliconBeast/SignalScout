@@ -47168,14 +47168,6 @@
 		(uuid "67c4e7b4-96f8-4778-ad0c-1ec270a20859")
 	)
 	(segment
-		(start 133.43 155.65)
-		(end 133.43 152.93)
-		(width 0.15)
-		(layer "B.Cu")
-		(net "SLED_RX")
-		(uuid "7138aa24-e0db-4cf8-82b9-c86e1dd9528e")
-	)
-	(segment
 		(start 125.45 161.75)
 		(end 124.85 162.35)
 		(width 0.15)
