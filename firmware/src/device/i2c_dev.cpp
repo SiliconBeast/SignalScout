@@ -128,11 +128,11 @@ bool Imu::begin() {
   uint8_t id = 0; ok_ = rd(ADDR_LSM6DSO, 0x0F, &id, 1) && (id == 0x6C || id == 0x6B || id == 0x6A);
   if (!ok_) return false;
   wr(ADDR_LSM6DSO, 0x10, 0x20); // accelerometer 26 Hz, +/- 2 g
-  // INT1 open-drain, active low: it shares SPARE_IO with the charger's PGOOD from rev C7.
+  // INT pins open-drain, active low: INT2 (pin 9) shares SPARE_IO with the charger's PGOOD from rev C7.
   wr(ADDR_LSM6DSO, 0x12, 0x74); // CTRL3_C: BDU, H_LACTIVE, PP_OD, IF_INC
   wr(ADDR_LSM6DSO, 0x5D, 0x33); // FREE_FALL: 312 mg for 6 samples (~230 ms at 26 Hz)
   wr(ADDR_LSM6DSO, 0x58, 0x80); // TAP_CFG2: embedded-function interrupts on
-  wr(ADDR_LSM6DSO, 0x5E, 0x10); // MD1_CFG: free fall -> INT1
+  wr(ADDR_LSM6DSO, 0x5F, 0x10); // MD2_CFG: free fall -> INT2 (INT1's pad is boxed in on the board)
   return true;
 }
 bool Imu::free_fall() { uint8_t s = 0; return ok_ && rd(ADDR_LSM6DSO, 0x1B, &s, 1) && (s & 0x20); } // WAKE_UP_SRC.FF_IA

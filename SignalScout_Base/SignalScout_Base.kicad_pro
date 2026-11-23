@@ -166,10 +166,10 @@
         "min_silk_clearance": 0.0,
         "min_text_height": 0.8,
         "min_text_thickness": 0.12,
-        "min_through_hole_diameter": 0.3,
+        "min_through_hole_diameter": 0.25,
         "min_track_width": 0.127,
         "min_via_annular_width": 0.15,
-        "min_via_diameter": 0.6,
+        "min_via_diameter": 0.55,
         "solder_mask_to_copper_clearance": 0.0,
         "use_height_for_length_calcs": true
       },
@@ -262,6 +262,10 @@
         {
           "diameter": 0.0,
           "drill": 0.0
+        },
+        {
+          "diameter": 0.55,
+          "drill": 0.25
         },
         {
           "diameter": 0.6,
@@ -573,7 +577,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.127,
         "diff_pair_gap": 0.2,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.25,
@@ -592,7 +596,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.127,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -610,7 +614,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.127,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -628,7 +632,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.2,
+        "clearance": 0.17,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -646,7 +650,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.2,
+        "clearance": 0.17,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -664,7 +668,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.127,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -682,7 +686,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.127,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -700,7 +704,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.35,
+        "clearance": 0.2,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -718,7 +722,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.2,
+        "clearance": 0.17,
         "diff_pair_gap": 0.2,
         "diff_pair_width": 0.25,
         "line_style": 0,

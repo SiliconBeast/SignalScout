@@ -11,7 +11,7 @@ Checked against the netlist in `SignalScout_Base/` (rev C.5 placement, same nets
 | 3 | Sled UART on UART0, boot ROM log on IO43 | **OK.** Every frame has a sync word and a CRC, so the sled parser drops the ROM text. The ESP32 ROM only listens on IO44 in download mode, which needs IO0 low. | None. Optional and permanent: `espefuse.py burn_efuse UART_PRINT_CONTROL 3` silences the ROM log. |
 | 4 | **No VBUS sense** | **Fix on the board.** BQ24074 `PGOOD` (pin 7, open-drain, low when input power is valid) is unconnected. | Rework: PGOOD to `SPARE_IO`. |
 | 5 | GNSS supply not switched | **OK as designed.** `VCC`, `V_IO` and `V_BCKP` all sit on the always-on +3V3. Before deep sleep the firmware sends UBX-RXM-PMREQ (backup), and the receiver keeps its almanac for a fast restart. The only open point is the measured sleep current. | Measure in bring-up step 11. If it's too high, a load switch goes in rev D. |
-| 6 | **IMU interrupts unconnected** | **Fix on the board.** Without INT1 there is no wake on a fall, which the planned fall-detection and auto-SOS feature needs. | Rework: LSM6DSO INT1 to `SPARE_IO` through 1 kΩ. |
+| 6 | **IMU interrupts unconnected** | **Fix on the board.** Without an IMU interrupt there is no wake on a fall, which the planned fall-detection and auto-SOS feature needs. | Rework: LSM6DSO INT2 to `SPARE_IO` through 1 kΩ. |
 
 Also checked:
 - **BQ24074 pin 15 is ITERM, not SYSOFF.** Left open it gives the default 10 % termination current. Pin 14 (TMR) open gives the default safety timers. CE is low, and EN2=1, EN1=0 means the ILIM resistor sets the input current. All correct.
@@ -28,7 +28,7 @@ Three changes, all near U4, U6, U10 and LED1. Do the schematic first, then Updat
 | R50 | 82 Ω 0402 | LED1 pin 2 (red cathode) | U4 pin 15 (`LED_RK`, P1_5) | Limits the power-on current to about 14 mA |
 | R51 | 22 Ω 0402 | LED1 pin 3 (green cathode) | U4 pin 16 (`LED_GK`, P1_6) | Same; small enough to keep current-sink headroom at 3.3 V |
 | R52 | 22 Ω 0402 | LED1 pin 4 (blue cathode) | U4 pin 17 (`LED_BK`, P1_7) | Same |
-| R53 | 1 kΩ 0402 | U6 pin 4 (`INT1`) | `SPARE_IO` | Fall interrupt; limits current before the firmware sets INT1 open-drain |
+| R53 | 1 kΩ 0402 | U6 pin 9 (`INT2`, net `IMU_INT`) | `SPARE_IO` | Fall interrupt; limits current before the firmware sets the INT pins open-drain. INT1 (pin 4) is boxed in by `LORA_BUSY` and a GND trace, so INT2 is used. |
 | (trace) | | U10 pin 7 (`PGOOD`) | `SPARE_IO` | USB/adapter present |
 
 `SPARE_IO` keeps R30 (10 k to +3V3) as its pull-up and still goes to J7 pin 5. Label J7 pin 5 as `PGOOD / IMU_INT (input)`, and make sure no expansion board drives it.
@@ -47,10 +47,32 @@ While the unit is plugged in, PGOOD holds the line low, so a fall can't wake it 
 
 - The expander's first write switches the LED pins to current-sink mode (dim 0) before anything else, to shorten the power-on window on boards without R50 to R52.
 - The expander interrupt now covers `SPARE_IO`.
-- LSM6DSO INT1 is set to open-drain, active low, with free fall (312 mg, about 230 ms) routed to it.
+- LSM6DSO INT2 is set to open-drain, active low, with free fall (312 mg, about 230 ms) routed to it (MD2_CFG).
 - `usb_present()` reads PGOOD and ignores the line while the IMU reports a fall. On C6b the line reads high, so the code falls back to `CHG_N` as before.
 
 ### Bring-up checks for C7
 1. Power a blank board from USB with no firmware. The LED may glow, but dimly and evenly; measure under 15 mA on the red channel.
 2. Plug and unplug USB while the unit is running. The battery glyph should change within 2 s even when the cell is full.
 3. Drop the unit about 30 cm onto a cushion while it's in deep sleep. It should wake.
+
+## Applied to the routed board (rev C7)
+
+`SignalScout_Base/SignalScout_Base.kicad_pcb` is now the routed v6 board with the rework applied, title block rev C.7.
+
+| Change | Where |
+|---|---|
+| R50 82 Ω, R51 22 Ω, R52 22 Ω in series with LED1 red, green and blue cathodes (LED side nets `LED_RK_D`, `LED_GK_D`, `LED_BK_D`) | F.Cu, next to LED1 |
+| R53 1 kΩ, U6 pin 9 (`IMU_INT`) to `SPARE_IO` | F.Cu at (126.46, 120.5) |
+| U10 pin 7 (PGOOD) to `SPARE_IO` | B.Cu out of the pin, then In2 to the existing `SPARE_IO` run |
+| `CHG_N` rerouted around U10 (via, short In2 hop) | It blocked the only exit from pin 7 |
+| Removed two vias that sat in pads and connected nothing | U1 pin 20 (`LCD_SCK`), C15 pad 1 (`DISP_VCIEN`) |
+
+Checked here with an exact-geometry clearance check against the `.kicad_pro` net-class clearances: 0 violations, all 89 nets connected, no new courtyard overlaps, the +3V3 plane on L3 stays in one piece. Zone fills were stripped because they are stale: **press B to refill, then run KiCad DRC** before plotting.
+
+### Still in pads (fill them)
+Six vias in E22 pins 13 to 18 and one in U1 pin 21 (`LCD_D1`) cannot move: above the E22 pads is the SMA no-via zone and the 50 Ω `RF_LORA` line, below is the module keep-out, and U1 pin 21 has no free via site. The rest are thermal-pad and test-point vias. Order with **resin-filled, copper-capped vias (all vias)**.
+
+### Solder mask bridges under 0.19 mm
+U6 (LGA-14, 0.15 mm between pads) and U10 corner pins (0.177 mm) use the standard footprints. Let the fab open the mask there.
+
+The schematic in this folder is still rev C.4 and the PCB footprints carry no schematic links, so the PCB is the source of truth for C7.
