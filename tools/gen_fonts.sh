@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # SignalOS fonts -> LVGL C files (needs: npm i -g lv_font_conv).
 #   Space Grotesk (OFL)   interface text, headings, the big clock
 #   JetBrains Mono (OFL)  numbers and identifiers: dBm, channels, MACs, coordinates
