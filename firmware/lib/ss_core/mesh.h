@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Signal Scout LoRa mesh: managed flooding with TTL, de-duplication, SOS
 // priority and a self-imposed airtime budget. Radio-independent (unit-tested).
 #pragma once
