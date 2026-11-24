@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Tile docs/screenshots/*.png into contact sheets (docs/screenshots/sheet_N.png)."""
 import glob, os, sys
 from PIL import Image
