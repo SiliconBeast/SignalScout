@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 namespace ss { namespace geo {
 double distance_m(double lat1, double lon1, double lat2, double lon2);   // haversine, WGS-84 mean radius
