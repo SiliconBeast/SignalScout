@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "ota.h"
 #include "json.h"
 #include <stdlib.h>
