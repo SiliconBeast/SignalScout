@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "battery.h"
 #include <math.h>
 namespace ss { namespace battery {
