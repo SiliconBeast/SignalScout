@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Regenerate tests/vectors/*.csv from the Python reference implementations."""
 import os, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
