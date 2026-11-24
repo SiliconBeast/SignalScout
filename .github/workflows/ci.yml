@@ -45,7 +45,7 @@ jobs:
           mkdir -p shots
           .pio/build/sim/program --shots shots
           test "$(ls shots/*.png | wc -l)" -ge 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: screenshots
           path: firmware/shots
@@ -67,7 +67,7 @@ jobs:
       - name: Build
         working-directory: firmware
         run: pio run -e device
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware
           path: |
