@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Sweep-mode correlation: is the broadband detector reading explained by the
 // WiFi/BLE emitters we can see? Mirrors sled/signalscout_sled/python/correlate.py
 // (both are checked against tests/vectors/correlate.json).
