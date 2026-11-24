@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """SignalOS icon set: one vector description per glyph, rendered three ways.
 
   assets/icons/adventure/<name>.png   full-colour app tiles (176 px, for docs / store)
