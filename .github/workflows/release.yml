@@ -24,7 +24,7 @@ jobs:
         run: pio run -e device
       - name: Manifest
         run: python3 tools/make_release.py firmware/.pio/build/device/firmware.bin out --notes "$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             out/firmware.bin
