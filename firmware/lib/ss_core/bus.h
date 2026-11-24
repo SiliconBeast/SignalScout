@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Message bus between the UI and the services. The UI never touches a driver
 // or a service object: it pops Events and pushes Cmds, nothing else.
 #pragma once
