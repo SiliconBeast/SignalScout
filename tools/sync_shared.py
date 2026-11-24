@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Copy the shared protocol source into the sled sketch (Arduino sketches cannot
 include files from outside their folder). `--check` fails if the copies differ."""
 import filecmp, os, shutil, sys
