@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Calendar arithmetic for the clock, AOD and logs (UTC, proleptic Gregorian).
 #pragma once
 #include <stdint.h>
