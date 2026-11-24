@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Browser simulator: SignalOS compiled to WebAssembly with Zig's clang
 # (pip install ziglang). Output: web/signalos.wasm next to web/index.html.
 # Serve web/ with any static server (python3 -m http.server -d web).
