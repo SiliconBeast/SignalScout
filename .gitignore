@@ -6,3 +6,9 @@ __pycache__/
 docs/screenshots/sheet_*.png
 .vscode/
 build-web/
+# KiCad
+*.lck
+*-backups/
+*.kicad_pcb-bak
+*.kicad_sch-bak
+fp-info-cache
