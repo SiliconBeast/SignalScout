@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "geo.h"
 #include <math.h>
 namespace ss { namespace geo {
