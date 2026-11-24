@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "json.h"
 #include <stdlib.h>
 #include <string.h>
