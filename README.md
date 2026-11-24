@@ -217,6 +217,10 @@ The logic, UI and protocol are tested on the host (39 firmware tests, 7 sled tes
 - Over-the-air updates need a published release; until then the Updates app reports that it couldn't check.
 - LoRa settings target the 902 to 928 MHz band (Canada/US). Check local rules before using it elsewhere.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT, Copyright (c) 2026 Suvir Duggal. See [LICENSE](LICENSE). Covers the firmware, tools, PCB and enclosure files, and docs. The bundled Space Grotesk and JetBrains Mono fonts keep their own SIL Open Font License (see `assets/fonts/`).
