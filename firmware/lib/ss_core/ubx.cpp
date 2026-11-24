@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "ubx.h"
 #include <string.h>
 namespace ss { namespace ubx {
