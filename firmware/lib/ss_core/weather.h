@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Weather: offline forecast from the BME280 barometer (Zambretti-style),
 // online forecast from Open-Meteo when Wi-Fi is up, and the shared condition
 // set both map to (one icon per condition).
