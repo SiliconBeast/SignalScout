@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "clock.h"
 namespace ss { namespace clk {
 // Howard Hinnant's days_from_civil / civil_from_days.
