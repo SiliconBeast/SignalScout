@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Minimal u-blox UBX support for the MAX-M10S: frame build/parse, NAV-PVT
 // decode and CFG-VALSET configuration (M10 has no legacy CFG-* messages).
 #pragma once
