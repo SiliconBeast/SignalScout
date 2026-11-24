@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "weather.h"
 #include "json.h"
 #include <math.h>
