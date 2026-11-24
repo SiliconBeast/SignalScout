@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "correlate.h"
 #include <math.h>
 namespace ss { namespace corr {
