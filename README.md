@@ -1,5 +1,8 @@
 # Signal Scout
 
+[![CI](https://github.com/SiliconBeast/signalscout/actions/workflows/ci.yml/badge.svg)](https://github.com/SiliconBeast/signalscout/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A pocket RF field instrument: Wi-Fi/Bluetooth diagnostics, broadband RF presence sensing and a GPS + LoRa mesh safety beacon in one handheld. Hardware, enclosure and firmware live in this repository.
 
 It runs **SignalOS**: a lock screen and always-on display, a pull-down shade, notifications, gestures with button equivalents, and two profiles (Hackerspace and Adventure). It joins Wi-Fi for time, weather and over-the-air updates. Design notes: [docs/SIGNALOS.md](docs/SIGNALOS.md).
