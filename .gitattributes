@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.png binary
+*.ttf binary
+*.wasm binary
+*.stl binary
+*.step -text
+*.kicad_pcb -text
+*.kicad_sch -text
