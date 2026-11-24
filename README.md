@@ -118,7 +118,7 @@ Generated from the KiCad boards by `tools/gen_pins.py`, which also writes `firmw
 
 It reports how much energy is present, not what the source is. The detector is broadband, so it cannot tell frequency or identify a transmitter.
 
-**Position, Navigate and Mesh** show the GNSS fix, saves waypoints, and points back to a saved waypoint with distance and bearing. It sends short text messages over a LoRa mesh (no subscription, peer to peer). Holding the SOS button for 2 seconds broadcasts the position to the mesh every 20 seconds and sounds the siren; hold again to cancel. SOS works from any screen and with the lock switch on.
+**Position, Navigate and Mesh** show the GNSS fix, save waypoints, and point back to a saved waypoint with distance and bearing. It sends short text messages over a LoRa mesh (no subscription, peer to peer). Holding the SOS button for 2 seconds broadcasts the position to the mesh every 20 seconds and sounds the siren; hold again to cancel. SOS works from any screen and with the lock switch on.
 
 **Weather** shows the online forecast (hourly and 3 days, Open-Meteo) when the unit is on Wi-Fi. It always shows a barometer forecast from the BME280 pressure trend, which works offline.
 
