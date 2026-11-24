@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Write the OTA manifest for a release.
 
   python3 tools/make_release.py firmware/.pio/build/device/firmware.bin out/ [--notes "..."] [--min 1.0.0]
