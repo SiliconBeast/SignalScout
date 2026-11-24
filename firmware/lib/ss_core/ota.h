@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Over-the-air updates: release manifest and version ordering.
 // A release publishes firmware.bin plus manifest.json (tools/make_release.py):
 //   {"version":"1.2.0","channel":"stable","url":"https://.../firmware.bin",
