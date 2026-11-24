@@ -4,6 +4,9 @@ on:
     branches: [main, firmware-v1, signalos]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   host:
     name: Tests + simulator
