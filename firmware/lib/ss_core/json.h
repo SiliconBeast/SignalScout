@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Minimal read-only JSON scanner for small, trusted-shape documents
 // (weather API, OTA manifest). No allocation, no recursion limit issues:
 // values are located by key inside one object level and read in place.
