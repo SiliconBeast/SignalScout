@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "mesh.h"
 #include "proto.h"
 #include <string.h>
