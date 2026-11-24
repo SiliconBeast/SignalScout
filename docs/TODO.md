@@ -46,6 +46,6 @@ These came up while deriving the pin map. Verdicts and the rev C7 rework are in 
 | H3 | The RGB LED cathodes go straight to the AW9523B with no series resistors. | The AW9523B powers up with all outputs low, so the LED runs unlimited until the firmware configures it. **Rev C7: R50 to R52.** |
 | H4 | No VBUS-sense or power-good signal reaches the MCU; only `CHG_N`. | **Rev C7: BQ24074 PGOOD to `SPARE_IO`.** |
 | H5 | The MAX-M10S supply and backup pins are tied to +3V3 with no switch. | Deep-sleep current depends on the receiver accepting the software backup command (F4). |
-| H6 | The LSM6DSO interrupt pins are not connected. | **Rev C7: INT1 to `SPARE_IO` through R53** (wake on a fall). |
+| H6 | The LSM6DSO interrupt pins are not connected. | **Rev C7: INT2 to `SPARE_IO` through R53** (wake on a fall). Applied to the routed board. |
 | H7 | `HAPTIC_EN` (IO45) and `SIREN_EN` (IO46) are strapping pins. | Fine as long as R40/R41 keep them low at reset, which the netlist shows. |
 | H8 | The sled's charger input comes from the base's VBUS through the pogo pins. | The sled battery only charges while docked to a base that is on USB. |
