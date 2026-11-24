@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Generate firmware/include/pins.h and docs/PINMAP.md from the KiCad board netlists.
 
 The schematic/board is the source of truth for every pin. Re-run after any
