@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Hardware abstraction: one interface per peripheral. Device implementations
 // live in src/device/, mocks in lib/ss_mock/. Services only see these.
 #pragma once
